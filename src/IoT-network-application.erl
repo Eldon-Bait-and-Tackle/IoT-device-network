@@ -11,19 +11,20 @@
 -behavior(application).
 
 %% API
--export([start/2, stop/1]).
+-export([start/2, stop/1, allowed_methods/2]).
+
+allowed_methods(Req, State) ->
+    { [<<"GET">>, <<"POST">>], Req, State }.
 
 start(_Type, _Args) ->
 
     Dispatch = cowboy_router:compile([
         {'_', [
             
-            %%% module api requests
             {"/api/module", module_request_handler, []},
             {"/api/handshake", module_handshake_handler, []},
 
 
-            %% dashboard and front end api requests
             {"/api/module/:id", front_hive_handler, []},
             {"/api/region/:id", front_region_handler, []},
             {"/api/generals", front_generals_handler, []}

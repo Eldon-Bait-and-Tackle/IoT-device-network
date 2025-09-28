@@ -16,6 +16,7 @@
 init(Req, State) ->
     
     Body = jiffy:encode(#{status => <<"ok">>}),
+    
     Internal_Req = cowboy_req:reply(200, #{
         <<"content-type">> => <<"application/json">>
     }, Body, Req),
