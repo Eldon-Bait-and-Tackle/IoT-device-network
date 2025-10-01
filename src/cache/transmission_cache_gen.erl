@@ -88,7 +88,7 @@ handle_call({get, Key = #module_data{module_id = External_id}}, _From, State = #
                     {reply, {ok, Module_transmissions}, State};
                 
                 true ->
-                {reply, {error, key_missmatch}, State}
+                {reply, {error, key_mismatch}, State}
             end;
                             
         _ ->
