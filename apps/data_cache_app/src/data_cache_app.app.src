@@ -1,0 +1,13 @@
+{application, data_cache_app,
+ [
+  {description, "database management and cache servers are hosted on this application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+   [
+    kernel,
+    stdlib
+   ]},
+  {mod, {data_cache_manager, []}},
+  {env, []}
+ ]}.
