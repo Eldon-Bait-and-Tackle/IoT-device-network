@@ -16,6 +16,7 @@
 -define(TABLE, ?MODULE).
 
 -record(transmission_cache_state, {}).
+-include("records.hrl") %% doule check this on I have no idea if this is how this actually works...
 
 %%%===================================================================
 %%% API functions
@@ -24,7 +25,8 @@
 new_transmission(Transmission) ->
     gen_server:cast(?SERVER, {new_transmission, Transmission}).
     
-
+get_general_last_reading(Module_id) ->
+    gen_server:call(?SERVER, {get_general_last_reading, Module_id}).
 
 
 
@@ -42,6 +44,25 @@ init([]) ->
     ets:new(?TABLE, [set, protected, named_table, {keypos, 1}]),
     {ok, #transmission_cache_state{}}.
 
+
+handle_call({get_general_last_reading, Module_id}, _From, State = #transmission_cache_state{}) ->
+    
+        %% here they are asking for the most modern readings from each module, this will only pull values from the cache and I should  add a smaller cache that contains each of these values.
+        
+        Result = ets:foldl(
+        
+            fun({Module_id, [Transmission | _]}, Acc) ->
+                [{Module_id, Transmission} | Acc];
+            (_, Acc) ->
+                Acc
+            end,
+            [],
+            ?TABLE
+        ),
+        
+        %% might need to include list:reverse here if this cuases problems later. It is simply in backwards order which shouln't releasitcally matter.
+
+    {reply, Result, State};
 handle_call(_Request, _From, State = #transmission_cache_state{}) ->
     {reply, ok, State}.
     
@@ -49,7 +70,8 @@ handle_call(_Request, _From, State = #transmission_cache_state{}) ->
 
 handle_cast({new_transmission, #transmission{module_id = Mi, temperature = T, moisture = M, battery = B}}, State = #transmission_cache_state{}) ->
 
-    Time = "Temporary",
+    %% stole this from the internet, will ahve to test if this is intended, it claims to be compatibvle with sql database datetime...
+    Time = calendar:system_time_to_rfc3339(erlang:system_time(millisecond), [{unit, millisecond}, {time_designator, false}, {separator, $s}, {template, "Y-M-D h:m:sZ"}]).
     
     New_Transmission_Record = #transmission_record{
         time = T,
