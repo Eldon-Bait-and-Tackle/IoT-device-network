@@ -2,12 +2,30 @@
 -record(
     transmission, {
     
+        % headers
+        hmac,
+        module_id,
+        chip_id,
+        
+        
+        %% payload
         temperature,
         moisture,
-        battery,
-        time
+        battery
     
 }).
+
+-record(
+    transmission_record, {
+    
+        %% payload
+        time,
+        temperature,
+        moisture,
+        battery
+
+}).
+
 
 -record(    
     module_data, {
@@ -16,22 +34,5 @@
         chip_id,
         module_mac,
         user_id
-        
-}).
-
--record(
-    node, {
-
-        neighbors,
-        data %% module data... ^
-    
-}).
-
--record(
-    transmission_cache_gen_state, {
-        
-        transmissions = #{}
-        %%% Key = Module_id
-        %%% Value = {module_data, [transmissions]
         
 }).
