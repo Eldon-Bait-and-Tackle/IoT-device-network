@@ -18,6 +18,9 @@
 -record(
     transmission_record, {
     
+        transmission_id,
+        module_id,
+    
         %% payload
         time,
         temperature,

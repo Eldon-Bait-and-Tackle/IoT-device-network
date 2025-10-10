@@ -76,7 +76,7 @@ handle_cast({new_transmission, Transmission = #transmission{module_id = Module_i
         {ok, true} ->
             %% stole this from the internet, will ahve to test if this is intended, it claims to be compatibvle with sql database datetime...
             Time = calendar:system_time_to_rfc3339(erlang:system_time(millisecond), [{unit, millisecond}, {time_designator, false}, {separator, $s}, {template, "Y-M-D h:m:sZ"}]),
-            New_record = transmission_to_record(Transmission, Time),
+            New_record = transmission_to_record(Transmission, Time, Module_id),
             
             
             case ets:lookup(?TABLE, Module_id) of
@@ -121,8 +121,12 @@ code_change(_OldVsn, State = #transmission_cache_state{}, _Extra) ->
 %%%===================================================================
 
 
-transmission_to_record(Trasmission = #transmission{temperature = Temperature, moisture = Moisture, battery = Battery}, Time) ->
+transmission_to_record(Trasmission = #transmission{temperature = Temperature, moisture = Moisture, battery = Battery}, Time, Module_id) ->
     #transmission_record{
+    
+        %%% The transmission record will be added when the transmission record is added into the database...
+    
+        module_id = Module_id,
         time = Time,
         temperature = Temperature,
         moisture = Moisture,
