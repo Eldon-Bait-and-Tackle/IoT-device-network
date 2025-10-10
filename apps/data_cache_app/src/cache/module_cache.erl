@@ -13,8 +13,25 @@
     code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(TABLE, ?MODULE).
 
 -record(module_cache_state, {}).
+
+
+%%%===================================================================
+%%% API functions
+%%%===================================================================
+
+
+retrieve_location(Module_id) ->
+    gen_server:call(?SERVER, {retrieve_location, Module_id}).
+    
+verify_module(Hmac, Chip_id, Module_id) ->
+    gen_server:call(?SERVER, {verify_module, Hmac, Chip_id, Module_id}).
+
+
+
+
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -24,11 +41,56 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
+    %%% The keypos is 2 here because the record name is first when the record is converted it is {module, module_id ....}
+    ets:new(?TABLE, [set, private, named_table, {keypos, 2}]),
+    
+    %%% on init I want to have this load all modules from database, once database is added I will include this
+    
+    
     {ok, #module_cache_state{}}.
 
+
+
+handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}) ->
+
+    case ets:lookup(?TABLE, Module_id) of
+        [#module{location = Location}] ->
+            {reply, {ok, Location}, State};
+        _ ->
+            %% THE MODULE IS NOT IN CACHE, in the future I want to add a database integration so that it will check the database if it exists or not.
+            {reply, {err, "Unkown Module Id"}, State}
+        end;
+        
+        
+handle_call({verify_module, Hmac, Chip_id, Module_id}, _From, State = #module_cache_state{}) ->
+
+    case ets:lookup(?TABLE, Module_id) of
+        [#module{hmac = Hmac, chip_id = Chip_id, module_id = Module_id}] ->
+            {reply, {ok, true}, State};
+        _ ->
+            {reply, {ok, false}, State}
+        end,
+    {reply, {err, "Module Verification Has Failed"}, State};
+    
+
+handle_call({register_module, User_id, Chip_id}, _From, State = #module_cache_state{}) ->
+    
+    %% Check if the module exists, if the user exists, if the chip_id exists.
+    
+    ;
+    
 handle_call(_Request, _From, State = #module_cache_state{}) ->
     {reply, ok, State}.
+    
+    
+    
 
+handle_cast({load_module, Module = #module{}}, State = #module_cache_state{}) ->
+
+    ets:insert(?TABLE, Module),
+    {noreply, State};
+    
+    
 handle_cast(_Request, State = #module_cache_state{}) ->
     {noreply, State}.
 

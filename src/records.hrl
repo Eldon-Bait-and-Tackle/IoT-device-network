@@ -28,11 +28,19 @@
 
 
 -record(    
-    module_data, {
-        
+    module, {
         module_id,
         chip_id,
-        module_mac,
-        user_id
+        user_id,
+        hmac,
         
+        location
+        
+        
+}).
+
+-record(
+    user, {
+        user_id,
+        modules
 }).

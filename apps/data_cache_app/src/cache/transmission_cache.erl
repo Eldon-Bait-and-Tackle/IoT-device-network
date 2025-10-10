@@ -68,7 +68,8 @@ handle_call(_Request, _From, State = #transmission_cache_state{}) ->
     
     
 
-handle_cast({new_transmission, #transmission{module_id = Mi, temperature = T, moisture = M, battery = B}}, State = #transmission_cache_state{}) ->
+handle_cast({new_transmission, #transmission{hmac = Hmac, module_id = Module_id, chip_id = Chip_id, temperature = Temperature,
+    moisture = Moisture, battery = Battery}}, State = #transmission_cache_state{}) ->
 
     %% stole this from the internet, will ahve to test if this is intended, it claims to be compatibvle with sql database datetime...
     Time = calendar:system_time_to_rfc3339(erlang:system_time(millisecond), [{unit, millisecond}, {time_designator, false}, {separator, $s}, {template, "Y-M-D h:m:sZ"}]).
