@@ -40,7 +40,18 @@
 }).
 
 -record(
+    node, {
+    
+        module_id,
+        neighbors
+    
+    
+    }
+).
+
+-record(
     user, {
         user_id,
+        user_auth,
         modules
 }).
