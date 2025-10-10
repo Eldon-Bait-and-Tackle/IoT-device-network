@@ -10,7 +10,8 @@
 
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-    code_change/3]).
+    code_change/3,
+    new_transmission/1, get_general_last_reading/1]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -68,30 +69,36 @@ handle_call(_Request, _From, State = #transmission_cache_state{}) ->
     
     
 
-handle_cast({new_transmission, #transmission{hmac = Hmac, module_id = Module_id, chip_id = Chip_id, temperature = Temperature,
-    moisture = Moisture, battery = Battery}}, State = #transmission_cache_state{}) ->
+handle_cast({new_transmission, Transmission = #transmission{module_id = Module_id, chip_id = Chip_id, hmac = Hmac}}, State = #transmission_cache_state{}) ->
 
-    %% stole this from the internet, will ahve to test if this is intended, it claims to be compatibvle with sql database datetime...
-    Time = calendar:system_time_to_rfc3339(erlang:system_time(millisecond), [{unit, millisecond}, {time_designator, false}, {separator, $s}, {template, "Y-M-D h:m:sZ"}]).
-    
-    New_Transmission_Record = #transmission_record{
-        time = T,
-        temperrature = T,
-        moisture = M,
-        battery = B
-    },
-
-
-    case ets:lookup(?TABLE, Mi) of
-        [{_Mi, Old_Transmission_Records}] ->
-            ets:insert(?TABLE, {Mi, [Old_Transmission_Records | New_Transmission_Record]});
+    case module_cache:verify_module(Module_id, Chip_id, Hmac) of 
+        %%% Module is verified and it's transmission is valid
+        {ok, true} ->
+            %% stole this from the internet, will ahve to test if this is intended, it claims to be compatibvle with sql database datetime...
+            Time = calendar:system_time_to_rfc3339(erlang:system_time(millisecond), [{unit, millisecond}, {time_designator, false}, {separator, $s}, {template, "Y-M-D h:m:sZ"}]),
+            New_record = transmission_to_record(Transmission, Time),
             
-        [] ->
-            %% MODULE IS POSTING TO ONE THAT DOES NOT EXIST !!!!!!!!!!!
-            {}
-        end,
+            
+            case ets:lookup(?TABLE, Module_id) of
+                [{Module_id, Old_records}] ->
+                
+                    ets:insert(?TABLE, {Module_id, [Old_records | New_record]}),
+                    {noreply, ok, State};
+                    
+                [{Module_id, []}] ->
+                
+                    ets:insert(?TABLE, {Module_id, [New_record]}),
+                    {noreply, ok, State};
 
-    {noreply, State};
+                _ ->
+                    %%% THIS STATE ACTUALLY JUST MEANS THAT THE MODULE EXISTS BUT IS NOT IN CACHE, I need a database connection here so that when this happens it will load the record instead of err
+                    {noreply, {err, "Module has been verified but does not exist in cache"}}
+            end;
+
+        {ok, false} ->
+            {noreply, {err, "Module has failed to verify"}}
+        end;
+
 
 
 handle_cast(_Request, State = #transmission_cache_state{}) ->
@@ -112,3 +119,12 @@ code_change(_OldVsn, State = #transmission_cache_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+transmission_to_record(Trasmission = #transmission{temperature = Temperature, moisture = Moisture, battery = Battery}, Time) ->
+    #transmission_record{
+        time = Time,
+        temperature = Temperature,
+        moisture = Moisture,
+        battery = Battery
+    }.
