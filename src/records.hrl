@@ -18,6 +18,9 @@
 -record(
     transmission_record, {
     
+        transmission_id,
+        module_id,
+    
         %% payload
         time,
         temperature,
@@ -28,11 +31,30 @@
 
 
 -record(    
-    module_data, {
-        
+    module, {
         module_id,
         chip_id,
-        module_mac,
-        user_id
+        user_id,
+        hmac,
         
+        location
+        
+        
+}).
+
+-record(
+    node, {
+    
+        module_id,
+        neighbors
+    
+    
+    }
+).
+
+-record(
+    user, {
+        user_id,
+        user_auth,
+        modules
 }).
