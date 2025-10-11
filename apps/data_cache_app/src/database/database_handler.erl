@@ -20,6 +20,7 @@
 -record(database_handler_state, {
     connection
 }).
+-include("records.hrl").
 
 
 %%%===================================================================

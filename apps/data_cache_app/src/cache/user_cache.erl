@@ -15,6 +15,7 @@
 -define(SERVER, ?MODULE).
 
 -record(user_cache_state, {}).
+-include("records.hrl").
 
 %%%===================================================================
 %%% Spawning and gen_server implementation

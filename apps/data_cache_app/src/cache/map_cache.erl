@@ -15,6 +15,7 @@
 -define(SERVER, ?MODULE).
 
 -record(map_cache_state, {}).
+-include("records.hrl").
 
 %%%===================================================================
 %%% Spawning and gen_server implementation

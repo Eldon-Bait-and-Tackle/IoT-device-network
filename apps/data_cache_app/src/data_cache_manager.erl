@@ -8,6 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(data_cache_manager).
 -author("eldon").
+-include("records.hrl").
 
 %% API
 -export([start/2, stop/1]).

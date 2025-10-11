@@ -17,6 +17,7 @@
 -define(TABLE, ?MODULE).
 
 -record(module_cache_state, {}).
+-include("records.hrl").
 
 
 %%%===================================================================
@@ -72,13 +73,6 @@ handle_call({verify_module, Hmac, Chip_id, Module_id}, _From, State = #module_ca
             {reply, {ok, false}, State}
         end,
     {reply, {err, "Module Verification Has Failed"}, State};
-    
-
-handle_call({register_module, User_id, Chip_id}, _From, State = #module_cache_state{}) ->
-    
-    %% Check if the module exists, if the user exists, if the chip_id exists.
-    
-    ;
     
 handle_call(_Request, _From, State = #module_cache_state{}) ->
     {reply, ok, State}.

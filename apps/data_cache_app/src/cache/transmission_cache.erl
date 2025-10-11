@@ -17,7 +17,7 @@
 -define(TABLE, ?MODULE).
 
 -record(transmission_cache_state, {}).
--include("records.hrl") %% doule check this on I have no idea if this is how this actually works...
+-include("records.hrl"). %% doule check this on I have no idea if this is how this actually works...
 
 %%%===================================================================
 %%% API functions
