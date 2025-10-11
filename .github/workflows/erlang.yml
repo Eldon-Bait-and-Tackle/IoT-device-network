@@ -20,7 +20,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Compile
-      run: rebar3 compile
+    - name: Compile_Data_Cache_App
+      run: cd apps/data_cache_app
+           rebar3 compile
     - name: Run tests
       run: rebar3 do eunit, ct
