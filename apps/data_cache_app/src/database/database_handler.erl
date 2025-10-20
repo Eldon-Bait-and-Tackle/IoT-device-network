@@ -132,7 +132,8 @@ row_to_transmission_record([Transmission_id, Module_id, Time, Temperature, Moist
         temperature = Temperature,
         moisture = Moisture,
         battery = Battery
-    }.
+    },
+    Record.
 
 row_to_module_record_helper([Head | Tail]) ->
     [row_to_module_record(Head)] ++ row_to_module_record_helper(Tail);
@@ -146,4 +147,5 @@ row_to_module_record([Module_id, Chip_id, User_id, Hmac, Location]) ->
         user_id = User_id,
         hmac = Hmac,
         location = Location
-    }.
+    },
+    Module_record.

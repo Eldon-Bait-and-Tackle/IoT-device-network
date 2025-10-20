@@ -1,0 +1,26 @@
+name: Erlang CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: erlang:25
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Compile_processing_application
+      run: rebar3 compile
+    - name: Run tests
+      run: rebar3 do eunit, ct

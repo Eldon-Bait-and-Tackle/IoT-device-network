@@ -46,7 +46,7 @@ init([]) ->
     {ok, #transmission_cache_state{}}.
 
 
-handle_call({get_general_last_reading, Module_id}, _From, State = #transmission_cache_state{}) ->
+handle_call({get_general_last_reading, _Module_id}, _From, State = #transmission_cache_state{}) ->
     
         %% here they are asking for the most modern readings from each module, this will only pull values from the cache and I should  add a smaller cache that contains each of these values.
         
@@ -61,7 +61,7 @@ handle_call({get_general_last_reading, Module_id}, _From, State = #transmission_
             ?TABLE
         ),
         
-        %% might need to include list:reverse here if this cuases problems later. It is simply in backwards order which shouln't releasitcally matter.
+        %% might need to include list:reverse here if this causes problems later. It is simply in backwards order which shouln't releasitcally matter.
 
     {reply, Result, State};
 handle_call(_Request, _From, State = #transmission_cache_state{}) ->
