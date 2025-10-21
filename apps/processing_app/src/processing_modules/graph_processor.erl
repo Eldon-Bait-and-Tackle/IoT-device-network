@@ -1,4 +1,4 @@
-﻿%%%-------------------------------------------------------------------
+%%%-------------------------------------------------------------------
 %%% @author Eldon
 %%% @copyright (C) 2025, <COMPANY>
 %%% @doc
@@ -13,6 +13,12 @@
     code_change/3]).
 
 -define(SERVER, ?MODULE).
+
+
+%%% consider changing these later...
+-define(MaxDist, 5).
+-define(MaxLat, 5).
+-define(MaxLong, 3).
 
 -record(graph_processor_state, {}).
 
@@ -60,13 +66,46 @@ update_cache() ->
 .
 
 
-%%% (#node, [#pre_node])
 
-build_node(#node(id = Module_id, number_connections = Number) = Node, _) when Number >= 3 > ->
-	Node.
-build_node(Module, Modules_Not_Checked) ->
+%%% here is where we determine if the neighbor is valid. Note that this does NOT include pruning or logical rules, but simply determines if it COULD be...
+threshold(#node{long = L11, lat = L12}, #node{long = L21, lat=L22} ->
+	Distance = math:sqrt(math:pow(L21 - L11) + math:pow(L22 - L11))
+	case Distance < MaxDist of
+		true ->
+			true;
+		_ ->
+			false
+		end.
+
+
+
+
+
+gabriel_neighbor(Module, [], Found, Number) ->
+	{Found, Number};
+gabriel_neighbor(Module, _, Found, Number) when Number > 2 ->
+	{Found, Number};
+gabriel_neighbor(Module, [Current|Remaining], Found, Number) ->
+	case threshold(Module, Current) of
+		true ->
+			gabriel_neighbor(Module, Remaining, [Found|Current], Number+1);
+		_ ->
+			gabriel_neighbor(Module. Remaining, Found, Number)
+		end.
 	
 	
 	
 	
-	.
+%%% initial setup of the queue where we add all the key values into the queue
+gabriel_graph(Map, [], []) ->
+		case maps:keys(Map) of
+			[] ->
+				err;
+			Keys ->
+				gabriel_graph(Map, Keys, [])
+		end;
+gabriel_graph(#{}, Queue, Finished) ->
+	[Finished | Queue];
+gabriel_graph(Map, Queue, Finished) ->
+	
+	
