@@ -17,8 +17,6 @@
 
 %%% consider changing these later...
 -define(MaxDist, 5).
--define(MaxLat, 5).
--define(MaxLong, 3).
 
 -record(graph_processor_state, {}).
 
@@ -68,44 +66,61 @@ update_cache() ->
 
 
 %%% here is where we determine if the neighbor is valid. Note that this does NOT include pruning or logical rules, but simply determines if it COULD be...
-threshold(#node{long = L11, lat = L12}, #node{long = L21, lat=L22} ->
+threshold(#node{location = {L11, L12}}, #node{location = {L21, L22}} ->
 	Distance = math:sqrt(math:pow(L21 - L11) + math:pow(L22 - L11))
 	case Distance < MaxDist of
 		true ->
-			true;
+			{true, Distance};
 		_ ->
-			false
+			{false, Distance}
 		end.
 
 
+map_helper() ->
+	
 
 
 
 gabriel_neighbor(Module, [], Found, Number) ->
-	{Found, Number};
+	Found;
 gabriel_neighbor(Module, _, Found, Number) when Number > 2 ->
-	{Found, Number};
+	Found;
+%%% ignore yourself :), double check this - eldon :{
+gabriel_neighbor(Module, [Current|Remaining], Found, Number) when Module == Current ->
+	gabriel_neighbor(Module. Remaining, Found, Number);
 gabriel_neighbor(Module, [Current|Remaining], Found, Number) ->
 	case threshold(Module, Current) of
-		true ->
-			gabriel_neighbor(Module, Remaining, [Found|Current], Number+1);
+		{true, Distance} ->
+			New_Neighbor = #neighbor{id => Current, distance => Distance},
+			gabriel_neighbor(Module, Remaining, [Found|New_Neighbor], Number+1);
 		_ ->
 			gabriel_neighbor(Module. Remaining, Found, Number)
-		end.
+	end.
 	
 	
 	
 	
 %%% initial setup of the queue where we add all the key values into the queue
-gabriel_graph(Map, [], []) ->
+%%% the map will be akin to #{key => module_id, Value = #node{}}, Queue =[Module_ids], Finished = [Module_ids]
+gabriel_graph(Map, [], #{}) ->
 		case maps:keys(Map) of
 			[] ->
-				err;
+				{err, "Error with gabriel_graph, Map is appearing as empty"}
 			Keys ->
 				gabriel_graph(Map, Keys, [])
 		end;
-gabriel_graph(#{}, Queue, Finished) ->
-	[Finished | Queue];
-gabriel_graph(Map, Queue, Finished) ->
+		
+gabriel_graph(Map, [Head|Remaining], Finished) ->
+	%%% Found = [#neighbor(id, distance)]
+	Found = gabriel_neighbor(Map#{Head}, maps:to_list(Map), [], 0),
+	
+	%%% Update the neighbors of head, as well as the 
+	TMP = Map#{Head},
+	TMP{neighbors => Found} %% this is a record neighbors is a list. 
+	Map#{Head := TMP},
+	
+		
+	
+	
 	
 	

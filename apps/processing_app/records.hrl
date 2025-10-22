@@ -13,21 +13,12 @@
 	node, {
 		
 		id,
-		number_connections,
 		neighbors,
-		long,
-		lat
+		location
 		
 	}
 ).
--record(
-	pre_node, {
-		
-		id, 
-		long,
-		lat
-		
-}).
+
 
 -record(
 	network, {
