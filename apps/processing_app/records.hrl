@@ -23,7 +23,8 @@
 -record(
 	network, {
 		
-		nodes
+		nodes,
+		size
 		
 	}
 ).

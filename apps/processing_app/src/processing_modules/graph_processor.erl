@@ -16,7 +16,7 @@
 
 
 %%% consider changing these later...
--define(MaxDist, 5).
+-define(MAXDIST, 5).
 
 -record(graph_processor_state, {}).
 
@@ -66,9 +66,9 @@ update_cache() ->
 
 
 %%% here is where we determine if the neighbor is valid. Note that this does NOT include pruning or logical rules, but simply determines if it COULD be...
-threshold(#node{location = {L11, L12}}, #node{location = {L21, L22}} ->
-	Distance = math:sqrt(math:pow(L21 - L11) + math:pow(L22 - L11))
-	case Distance < MaxDist of
+threshold(#node{location = {L11, L12}}, #node{location = {L21, L22}}) ->
+	Distance = math:sqrt(math:pow(L21 - L11, 2) + math:pow(L22 - L12, 2)),
+	case Distance < ?MAXDIST of
 		true ->
 			{true, Distance};
 		_ ->
@@ -76,7 +76,6 @@ threshold(#node{location = {L11, L12}}, #node{location = {L21, L22}} ->
 		end.
 
 
-map_helper() ->
 	
 
 
@@ -87,14 +86,14 @@ gabriel_neighbor(Module, _, Found, Number) when Number > 2 ->
 	Found;
 %%% ignore yourself :), double check this - eldon :{
 gabriel_neighbor(Module, [Current|Remaining], Found, Number) when Module == Current ->
-	gabriel_neighbor(Module. Remaining, Found, Number);
+	gabriel_neighbor(Module, Remaining, Found, Number);
 gabriel_neighbor(Module, [Current|Remaining], Found, Number) ->
 	case threshold(Module, Current) of
 		{true, Distance} ->
-			New_Neighbor = #neighbor{id => Current, distance => Distance},
-			gabriel_neighbor(Module, Remaining, [Found|New_Neighbor], Number+1);
+			New_Neighbor = #neighbor{id = Current, distance = Distance},
+			gabriel_neighbor(Module, Remaining, [New_Neighbor | Found], Number+1);
 		_ ->
-			gabriel_neighbor(Module. Remaining, Found, Number)
+			gabriel_neighbor(Module, Remaining, Found, Number)
 	end.
 	
 	
@@ -102,25 +101,30 @@ gabriel_neighbor(Module, [Current|Remaining], Found, Number) ->
 	
 %%% initial setup of the queue where we add all the key values into the queue
 %%% the map will be akin to #{key => module_id, Value = #node{}}, Queue =[Module_ids], Finished = [Module_ids]
-gabriel_graph(Map, [], #{}) ->
-		case maps:keys(Map) of
-			[] ->
-				{err, "Error with gabriel_graph, Map is appearing as empty"}
-			Keys ->
-				gabriel_graph(Map, Keys, [])
-		end;
-		
+gabriel_graph(Map, [], _Finished) ->
+    case maps:keys(Map) of
+        [] ->
+            {err, "Error with gabriel_graph, Map is appearing as empty"}; %%% add log here
+        Keys ->
+            gabriel_graph(Map, Keys, Map)
+    end;
+gabriel_graph(_Map, [], Finished_Map) ->
+	{ok, Finished_Map};
 gabriel_graph(Map, [Head|Remaining], Finished) ->
-	%%% Found = [#neighbor(id, distance)]
-	Found = gabriel_neighbor(Map#{Head}, maps:to_list(Map), [], 0),
-	
-	%%% Update the neighbors of head, as well as the 
-	TMP = Map#{Head},
-	TMP{neighbors => Found} %% this is a record neighbors is a list. 
-	Map#{Head := TMP},
+    Current_Node = Map#{Head},
+    Neighbor_IDs = maps:keys(Map),
+    Neighbors = gabriel_neighbor(Current_Node, Neighbor_IDs, [], 0),
+    
+    
+    %%% adding error hanlding here
+
+    New_Node = Current_Node#node{id = , neighbors = Neighbors},
+    New_Map = Map#{Head := New_Node},
+    
+    gabriel_graph(New_Map, Remaining, Finished).
 	
 		
-	
+
 	
 	
 	

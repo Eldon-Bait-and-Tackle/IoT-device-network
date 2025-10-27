@@ -1,0 +1,13 @@
+{application, app,
+ [
+  {description, "app"},
+  {vsn, "0.0.0"},
+  {registered, []},
+  {applications,
+   [
+    kernel,
+    stdlib
+   ]},
+  {mod, {app, []}},
+  {env, []}
+ ]}.
