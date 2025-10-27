@@ -1,13 +1,13 @@
 {application, app,
  [
-  {description, "app"},
-  {vsn, "0.0.0"},
+  {description, "HAC Application"},
+  {vsn, "0.1.2"},
   {registered, []},
   {applications,
    [
     kernel,
     stdlib
    ]},
-  {mod, {app, []}},
+  {mod, {data_cache_manager, []}},
   {env, []}
  ]}.

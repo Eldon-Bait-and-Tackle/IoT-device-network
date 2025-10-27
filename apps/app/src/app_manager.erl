@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 03. Oct 2025 1:44 PM
 %%%-------------------------------------------------------------------
--module(data_cache_manager).
+-module(app_manager).
 -author("eldon").
 -include("records.hrl").
 
