@@ -11,7 +11,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    retrieve_location/1, verify_module/3]).
+    retrieve_location/1, verify_module/3, store_challenge/3, verify_response/3, verify_auth_token/1]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -37,6 +37,8 @@ store_challenge(Challenge, Module_id, Chip_id) ->
 verify_response(Module_id, Chip_id, Response) ->
     gen_server:call(?SERVER, {verify_response, Module_id, Chip_id, Response}).
 
+verify_auth_token(AuthToken) ->
+    gen_server:call(?SERVER, {verify_auth_token, AuthToken}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation

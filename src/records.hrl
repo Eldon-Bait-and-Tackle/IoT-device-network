@@ -36,7 +36,8 @@
         chip_id,
         user_id,
         hmac,
-        location
+        location,
+        challenge
         
         
 }).

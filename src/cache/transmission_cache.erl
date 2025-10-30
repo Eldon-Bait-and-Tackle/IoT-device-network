@@ -33,9 +33,6 @@ get_recent_reading(Module_Id) ->
     gen_server:call(?SERVER, {get_recent_reading, Module_Id}).
 
 
-
-
-
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================

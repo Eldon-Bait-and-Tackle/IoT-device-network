@@ -19,15 +19,11 @@ start(_Type, _Args) ->
 stop(_State) ->
     ok.
 
-auth_on_register(_ClientId, Module_id, HMAC, _CleanSession, _MaxQos, _Mountpoint) ->
+auth_on_register(_ClientId, AuthToken, _Password, _CleanSession, _MaxQos, _Mountpoint) ->
 
-    ChipId = <<>>,
-
-    case module_cache:verify_module(HMAC, ChipId, Module_id) of
+    case module_cache:verify_auth_token(AuthToken) of
         {ok, true} ->
-            % Authentication successful: grant access to all topics
             {ok, {vmq_acl:all_access, vmq_acl:all_access}};
         _ ->
-            % Authentication failed
             {error, bad_username_or_password}
     end.

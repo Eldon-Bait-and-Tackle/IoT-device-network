@@ -28,9 +28,10 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-init([]) ->
-    process(),
-    {ok, #heuristic_processor_state{}}.
+init([ManagerPid]) ->
+    Result = process(),
+    gen_server:cast(ManagerPid, {process_return, Result}),
+    {stop, normal, #heuristic_processor_state{}}.
 
 handle_call(_Request, _From, State = #heuristic_processor_state{}) ->
     {reply, ok, State}.
