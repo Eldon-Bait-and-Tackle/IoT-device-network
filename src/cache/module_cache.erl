@@ -31,8 +31,11 @@ retrieve_location(Module_id) ->
 verify_module(Hmac, Chip_id, Module_id) ->
     gen_server:call(?SERVER, {verify_module, Hmac, Chip_id, Module_id}).
 
+store_challenge(Challenge, Module_id, Chip_id) ->
+    gen_server:call(?SERVER, {store_challenge, Challenge, Module_id, Chip_id}).
 
-
+verify_response(Module_id, Chip_id, Response) ->
+    gen_server:call(?SERVER, {verify_response, Module_id, Chip_id, Response}).
 
 
 %%%===================================================================
@@ -73,7 +76,30 @@ handle_call({verify_module, Hmac, Chip_id, Module_id}, _From, State = #module_ca
             {reply, {ok, false}, State}
         end,
     {reply, {err, "Module Verification Has Failed"}, State};
-    
+
+handle_call({store_challenge, Challenge, Module_id, Chip_id}, _From, State = #module_cache_state{}) ->
+    case ets:lookup(?TABLE, Module_id) of
+        [Module = #module{chip_id = Chip_id}] ->
+            UpdatedModule = Module#module{challenge = Challenge},
+            ets:insert(?TABLE, UpdatedModule),
+            {reply, {ok, Challenge}, State};
+        _ ->
+            {reply, {error, "Module not registered or Chip ID mismatch"}, State}
+    end.
+handle_call({verify_response, Module_id, Chip_id, Response}, _From, State = #module_cache_state{}) ->
+    case ets:lookup(?TABLE, Module_id) of
+        [#module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
+            
+            ExpectedHmac = crypto:hmac(sha256, SecretKey, Challenge),
+            IsVerified = (ExpectedHmac == Response),
+            UpdatedModule = Module#module{challenge = <<>>},
+            ets:insert(?TABLE, UpdatedModule),
+
+            {reply, {ok, IsVerified}, State};
+        _ ->
+            {reply, {ok, false}, State}
+    end;
+
 handle_call(_Request, _From, State = #module_cache_state{}) ->
     {reply, ok, State}.
     
