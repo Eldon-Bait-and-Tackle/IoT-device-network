@@ -11,7 +11,8 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    retrieve_location/1, verify_module/3, store_challenge/3, verify_response/3, verify_auth_token/1]).
+    retrieve_location/1, 
+    store_challenge/3, verify_response/3, verify_auth_token/1, verify_module/3]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
