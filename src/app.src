@@ -1,13 +1,16 @@
-{application, app,
+{application, hsn_app,
  [
-  {description, "HAC Application"},
-  {vsn, "0.1.2"},
+  {description, "HSN Application"},
+  {vsn, "0.2.1"},
   {registered, []},
   {applications,
-   [
-    kernel,
-    stdlib
-   ]},
-  {mod, {data_cache_manager, []}},
-  {env, []}
+     [kernel,
+      stdlib,
+      crypto,
+      jiffy,
+      cowboy
+     ]},
+  	{mod, {hsn_app, []}},
+  	{env, []},
+	{modules, []}
  ]}.
