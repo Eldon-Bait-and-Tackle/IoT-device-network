@@ -11,7 +11,8 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    retrieve_location/1, verify_module/3]).
+    retrieve_location/1, 
+    store_challenge/3, verify_response/3, verify_auth_token/1, verify_module/3]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -31,9 +32,14 @@ retrieve_location(Module_id) ->
 verify_module(Hmac, Chip_id, Module_id) ->
     gen_server:call(?SERVER, {verify_module, Hmac, Chip_id, Module_id}).
 
+store_challenge(Challenge, Module_id, Chip_id) ->
+    gen_server:call(?SERVER, {store_challenge, Challenge, Module_id, Chip_id}).
 
+verify_response(Module_id, Chip_id, Response) ->
+    gen_server:call(?SERVER, {verify_response, Module_id, Chip_id, Response}).
 
-
+verify_auth_token(AuthToken) ->
+    gen_server:call(?SERVER, {verify_auth_token, AuthToken}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -64,16 +70,46 @@ handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}
         end;
         
         
+
+
 handle_call({verify_module, Hmac, Chip_id, Module_id}, _From, State = #module_cache_state{}) ->
 
     case ets:lookup(?TABLE, Module_id) of
         [#module{hmac = Hmac, chip_id = Chip_id, module_id = Module_id}] ->
             {reply, {ok, true}, State};
         _ ->
+            logger:send_log(?SERVER, "Module Verification has failed"),
             {reply, {ok, false}, State}
-        end,
-    {reply, {err, "Module Verification Has Failed"}, State};
+        end;
     
+
+
+
+handle_call({store_challenge, Challenge, Module_id, Chip_id}, _From, State = #module_cache_state{}) ->
+    case ets:lookup(?TABLE, Module_id) of
+        [Module = #module{chip_id = Chip_id}] ->
+            UpdatedModule = Module#module{challenge = Challenge},
+            ets:insert(?TABLE, UpdatedModule),
+            {reply, {ok, Challenge}, State};
+        _ ->
+            {reply, {error, "Module not registered or Chip ID mismatch"}, State}
+    end.
+
+
+handle_call({verify_response, Module_id, Chip_id, Response}, _From, State = #module_cache_state{}) ->
+    case ets:lookup(?TABLE, Module_id) of
+        [#module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
+            
+            ExpectedHmac = crypto:hmac(sha256, SecretKey, Challenge),
+            IsVerified = (ExpectedHmac == Response),
+            UpdatedModule = Module#module{challenge = <<>>},
+            ets:insert(?TABLE, UpdatedModule),
+
+            {reply, {ok, IsVerified}, State};
+        _ ->
+            {reply, {ok, false}, State}
+    end;
+
 handle_call(_Request, _From, State = #module_cache_state{}) ->
     {reply, ok, State}.
     

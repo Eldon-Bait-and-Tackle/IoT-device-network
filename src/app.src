@@ -1,0 +1,16 @@
+{application, hsn_app,
+ [
+  {description, "HSN Application"},
+  {vsn, "0.2.1"},
+  {registered, []},
+  {applications,
+     [kernel,
+      stdlib,
+      crypto,
+      jiffy,
+      cowboy
+     ]},
+  	{mod, {hsn_app, []}},
+  	{env, []},
+	{modules, []}
+ ]}.

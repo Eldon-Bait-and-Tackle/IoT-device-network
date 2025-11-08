@@ -36,20 +36,22 @@
         chip_id,
         user_id,
         hmac,
-        
-        location
+        location,
+        challenge
         
         
 }).
 
 -record(
-    node, {
-    
-        module_id,
-        neighbors
-    
-    
-    }
+	node, {
+		
+		id,
+		number_connections,
+		neighbors,
+		long,
+		lat
+		
+	}
 ).
 
 -record(
