@@ -70,15 +70,20 @@ handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}
         end;
         
         
+
+
 handle_call({verify_module, Hmac, Chip_id, Module_id}, _From, State = #module_cache_state{}) ->
 
     case ets:lookup(?TABLE, Module_id) of
         [#module{hmac = Hmac, chip_id = Chip_id, module_id = Module_id}] ->
             {reply, {ok, true}, State};
         _ ->
+            logger:send_log(?SERVER, "Module Verification has failed"),
             {reply, {ok, false}, State}
-        end,
-    {reply, {err, "Module Verification Has Failed"}, State};
+        end;
+    
+
+
 
 handle_call({store_challenge, Challenge, Module_id, Chip_id}, _From, State = #module_cache_state{}) ->
     case ets:lookup(?TABLE, Module_id) of
@@ -89,6 +94,8 @@ handle_call({store_challenge, Challenge, Module_id, Chip_id}, _From, State = #mo
         _ ->
             {reply, {error, "Module not registered or Chip ID mismatch"}, State}
     end.
+
+
 handle_call({verify_response, Module_id, Chip_id, Response}, _From, State = #module_cache_state{}) ->
     case ets:lookup(?TABLE, Module_id) of
         [#module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->

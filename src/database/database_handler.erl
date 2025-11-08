@@ -12,6 +12,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
     
+    new_transmission/1,
     retrieve_module_data/1, retrieve_all_modules_data/0,
     retrieve_all_modules_last_transmissions/0]).
 
@@ -27,6 +28,9 @@
 %%% API functions
 %%%===================================================================
 
+new_transmission(Payload) ->
+    gen_server:cast(?SERVER, {new_transmission, Payload}).
+    .
 
 retrieve_module_data(Module_id) ->
     gen_server:call(?SERVER, {retrieve_module, Module_id}).
@@ -101,6 +105,32 @@ handle_call({retrieve_all_modules_last_transmissions}, _From, State = #database_
 
 handle_call(_Request, _From, State = #database_handler_state{}) ->
     {reply, ok, State}.
+
+
+
+handle_cast({new_transmission, Payload}, State = #database_handler_state{connection = Connection}) ->
+
+    {Module_id, Temperature, Moisture, Battery} = Payload,
+    
+    
+    Query = "INSERT INTO transmission (module_id, time, temperature, moisture, battery) "
+    "VALUES ($1, NOW(), $2, $3, $4) "
+    "RETURNING transmission_id, module_id, time, temperature, moisture, battery",
+
+    Params = [Module_id, Temperature, Moisture, Battery],
+
+    case epgsql:squery(Connection, Query, Params) of
+        {ok, _Columns, [Row]} ->
+            NewRecord = row_to_transmission_record(Row),
+            transmission_cache:new_transmission(NewRecord),
+            {noreply, State};
+        {error, Reason} ->
+            logger:send_log(?SERVER, Reason),
+            {noreply, State};
+        _Other ->
+            logger:send_log(?SERVER, "epgsql has failed with unknown issues"),
+            {noreply, State}
+    end;
 
 handle_cast(_Request, State = #database_handler_state{}) ->
     {noreply, State}.
