@@ -13,7 +13,7 @@
     code_change/3,
     
     new_transmission/1, register_module/2,
-    retrieve_module_data/1, retrieve_all_modules_data/0, load_modules/1,
+    retrieve_module_data/1, retrieve_all_modules_data/0, load_module/1,
     retrieve_all_modules_last_transmissions/0]).
 
 -define(SERVER, ?MODULE).
@@ -43,6 +43,9 @@ retrieve_all_modules_data() ->
 retrieve_all_modules_last_transmissions() ->
     gen_server:call(?SERVER, {retrieve_all_modules_last_transmissions}).
 
+load_module(Module) ->
+    gen_server:cast(?SERVER, {load_modules, Module}).
+
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -53,7 +56,7 @@ start_link() ->
 
 init([]) ->
     {ok, Conn} = epgsql:connect(#{}),
-    {ok, #database_handler_state{}}.
+    {ok, #database_handler_state{connection =  Conn}}.
 
 handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state{connection = Connection}) ->
 
@@ -73,9 +76,10 @@ handle_call({retrieve_all_modules_data}, _From, State = #database_handler_state{
     case epgsql:squery(Connection, Query) of
         {ok, _Columns, []} ->
             {reply, {err, "Unable to find any modules? "}, State};
-        {ok, _Columns, [Rows]} ->
+        {ok, _Columns, Rows} ->
             {reply, {ok, row_to_module_record_helper(Rows)}, State};
         {error, Reason} ->
+            logger:send_log(?SERVER, "An error has occured with retreive_all_module_data"),
             {reply, {err, Reason}, State}
         end;
 
@@ -113,10 +117,11 @@ handle_call({retrieve_latest_transmission_by_module}, _From, State = #database_h
     case epqsql:squery(Connection, Query, [Module_id]) of
         {ok,_Columns, []} ->
             {reply, {err, "ERROR (retrieve_latest_transmission_by_module), Either unable to get a transmisison, or the module_id does not exist. "}};
-        {ok, _Columns, [Row]} ->
-            {reply, {ok, row_to_transmission_record(Row)}};
+        {ok, _Columns, Row} ->
+            {reply, {err, "No transmissions found in the last 7 days"}, State};
         {error, Reason} ->
-            {reply, {err, Reason}}
+            logger:send_log(?SERVER, "An error has occured when trying to retrieve_latest_transmission_by_module"),
+            {reply, {err, Reason}, State}
         end;
         
 
@@ -126,10 +131,12 @@ handle_call({retrieve_all_modules_last_transmissions}, _From, State = #database_
     
     case epgsql:squery(Connection, Query) of
         {ok, _Columns, []} ->
-            {reply, {err, "An error occured when trying to retreive all module data"}};
+            logger:send_log(?SERVER, "An error occured when trying to retreive all module data"),
+            {reply, {err, "An error occured when trying to retreive all module data"}, State};
         {ok, _Columns, [Rows]} ->
-            {reply, {ok, row_to_transmission_record_helper(Rows)}};
+            {reply, {ok, row_to_transmission_record_helper(Rows)}, State};
         {error, Reason} ->
+            logger:send_log(?SERVER, Reason),
             {reply, {err, Reason}, State}
     end;
 
@@ -179,9 +186,10 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%%===================================================================
 
 row_to_transmission_record_helper([Head | Tail]) ->
-    [row_to_transmission_record(Head) | row_to_module_record_helper(Tail)];
+    [row_to_transmission_record(Head) | row_to_transmission_record_helper(Tail)];
 row_to_transmission_record_helper([]) ->
     [].
+
 
 
 row_to_transmission_record([Transmission_id, Module_id, Time, Temperature, Moisture, Battery]) ->
@@ -196,7 +204,7 @@ row_to_transmission_record([Transmission_id, Module_id, Time, Temperature, Moist
     Record.
 
 row_to_module_record_helper([Head | Tail]) ->
-    [row_to_module_record(Head)] ++ row_to_module_record_helper(Tail);
+    [row_to_module_record(Head) | row_to_module_record_helper(Tail)];
 row_to_module_record_helper([]) ->
     [].
 

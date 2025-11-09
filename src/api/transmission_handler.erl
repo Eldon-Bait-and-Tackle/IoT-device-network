@@ -30,15 +30,6 @@ decode_transmission_payload(Body) ->
 module_validation(Module_id, Hmac, Cid) ->
     module_cache:verify_module(Hmac, Module_id, Cid).
 
-handle_transmission(Mid, Hmac, Cid, Payload, Req, State) ->
-    case module_validation(Mid, Hmac, Cid) of
-        {ok, true} ->
-            database_handler:new_transmission(Payload),
-            {ok, cowboy_req:reply(200, Req, <<"OK">>, State)};
-        _ ->
-            {ok, cowboy_req:reply(403, Req, <<"Forbidden">>, State)}
-        end.
-    
 
 handle_transmission(Module_id, Hmac, Chip_id, Payload, Req, State) ->
     case module_validation(Module_id, Hmac, Chip_id) of

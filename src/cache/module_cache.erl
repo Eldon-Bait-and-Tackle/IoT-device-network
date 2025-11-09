@@ -11,7 +11,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    retrieve_location/1, 
+    retrieve_location/1, load_module/1,
     store_challenge/3, verify_response/3, verify_auth_token/1, verify_module/3]).
 
 -define(SERVER, ?MODULE).
@@ -40,6 +40,9 @@ verify_response(Module_id, Chip_id, Response) ->
 
 verify_auth_token(AuthToken) ->
     gen_server:call(?SERVER, {verify_auth_token, AuthToken}).
+
+load_module(Module = #module={}) ->
+    gen_server:cast(?SERVER, {load_module, Module}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -98,10 +101,11 @@ handle_call({store_challenge, Challenge, Module_id, Chip_id}, _From, State = #mo
 
 handle_call({verify_response, Module_id, Chip_id, Response}, _From, State = #module_cache_state{}) ->
     case ets:lookup(?TABLE, Module_id) of
-        [#module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
-            
+        [Module = #module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
+
             ExpectedHmac = crypto:hmac(sha256, SecretKey, Challenge),
             IsVerified = (ExpectedHmac == Response),
+
             UpdatedModule = Module#module{challenge = <<>>},
             ets:insert(?TABLE, UpdatedModule),
 
@@ -117,7 +121,6 @@ handle_call(_Request, _From, State = #module_cache_state{}) ->
     
 
 handle_cast({load_module, Module = #module{}}, State = #module_cache_state{}) ->
-
     ets:insert(?TABLE, Module),
     {noreply, State};
     

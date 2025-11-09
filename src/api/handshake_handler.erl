@@ -6,10 +6,10 @@
 %%%-------------------------------------------------------------------
 -module(handshake_handler).
 
--behaviour(gen_server).
+-behaviour(cowboy_handler).
 
 -export([start_link/0]).
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+-export([init/2,
     code_change/3]).
 
 -define(SERVER, ?MODULE).
@@ -41,24 +41,12 @@ init(Req, State) ->
 terminate(_Reason, _Req, _State) -> ok.
 
 
-
 decode_payload(Body) ->
     try jiffy:decode(Body, [return_maps]) catch _:_ -> #{} end.
-
-handle_call(_Request, _From, State = #handshake_handler_state{}) ->
-    {reply, ok, State}.
-
-handle_cast(_Request, State = #handshake_handler_state{}) ->
-    {noreply, State}.
-
-handle_info(_Info, State = #handshake_handler_state{}) ->
-    {noreply, State}.
 
 terminate(_Reason, _State = #handshake_handler_state{}) ->
     ok.
 
-code_change(_OldVsn, State = #handshake_handler_state{}, _Extra) ->
-    {ok, State}.
 
 %%%===================================================================
 %%% Internal functions
