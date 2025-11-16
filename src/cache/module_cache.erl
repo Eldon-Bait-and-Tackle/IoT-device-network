@@ -26,6 +26,18 @@
 %%%===================================================================
 
 
+%%% User acces options
+
+
+%%% a general release of data is required to have a user authentication for any values beyond processed anonomised user statistics :)
+get_module_data(User_Auth) ->
+    gen_server:call({get_module_data, User_Auth}).
+
+
+
+%%% module access options "generally"
+
+
 retrieve_location(Module_id) ->
     gen_server:call(?SERVER, {retrieve_location, Module_id}).
     
@@ -60,6 +72,14 @@ init([]) ->
     
     {ok, #module_cache_state{}}.
 
+
+
+handle_call({get_module_data, User_auth}, _FROM, State= #module_cache_state{}) ->
+
+
+
+
+;
 
 
 handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}) ->

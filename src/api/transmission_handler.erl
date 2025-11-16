@@ -39,6 +39,9 @@ handle_transmission(Module_id, Hmac, Chip_id, Payload, Req, State) ->
             %%% this is to say that this funciton will add the new payload into cache after this cast is called.
             database_handler:new_transmission(Payload),
             
+
+            %%% What does this state function actually do? we should not be returning this outside the api even if it not used?
+
             {ok, cowboy_req:reply(200, Req, <<"OK">>, State)};
         {error, invalid_hmac} ->
             {ok, cowboy_req:reply(401, Req, <<"Unauthorized: Invalid HMAC">>, State)};

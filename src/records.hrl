@@ -48,8 +48,7 @@
 		id,
 		number_connections,
 		neighbors,
-		long,
-		lat
+		locations
 		
 	}
 ).
