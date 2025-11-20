@@ -69,7 +69,7 @@ handle_call(_Request, _From, State = #map_cache_state{}) ->
     {reply, ok, State}.
 
 
-handle_cast({new_map, Map}, State = #map_cache_state{]) ->
+handle_cast({new_map, Map}, State = #map_cache_state{}) ->
     case update_map(Map) of
         {ok, _} ->
             {noreply, State};
@@ -101,9 +101,9 @@ code_change(_OldVsn, State = #map_cache_state{}, _Extra) ->
 
 
 update_map([]) ->
-    {ok, yuppers}.
+    {ok, yuppers}
 ;
-update_map([Head = #node{ Id = id, Num = number_connections, Neighbors = neighbors, Location = location}| Tail]) ->
+update_map([Head = #node{Id = id, Num = number_connections, Neighbors = neighbors, Location = location}| Tail]) ->
     ets:insert(?TABLE, {Id, Num, Neighbors, Location}),
     update_map(Tail);
 update_map(Input) when Input != #node{} ->
