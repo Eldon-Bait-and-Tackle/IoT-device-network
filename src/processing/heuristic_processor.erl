@@ -10,6 +10,7 @@
 
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+    
     code_change/3]).
 
 -define(SERVER, ?MODULE).
@@ -30,7 +31,7 @@ start_link() ->
 
 init([ManagerPid]) ->
     Result = process(),
-    gen_server:cast(ManagerPid, {process_return, Result}),
+    %%% gen_server:cast(ManagerPid, {process_return, Result}),
     {stop, normal, #heuristic_processor_state{}}.
 
 handle_call(_Request, _From, State = #heuristic_processor_state{}) ->
@@ -52,7 +53,8 @@ code_change(_OldVsn, State = #heuristic_processor_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-
+save_to_cache(Result_map) ->
+    heuristics_cache:new_results(Result_map).
 
 process() ->
     ModuleIDs = module_cache:get_all_ids(),
@@ -64,15 +66,15 @@ check_module_temp(ModuleID) ->
     case map_cache:get_neighbors(ModuleID) of
         {ok, NeighborIDs} when length(NeighborIDs) > 0 ->
             AvgNeighborTemp = get_neighbor_avg_temp(NeighborIDs),
-            IsWithinRange = is_within_range(SelfTemp, AvgNeighborTemp),
-            {ModuleID, SelfTemp, AvgNeighborTemp, IsWithinRange};
+            {IsWithinRange, Deviation} = is_within_range(SelfTemp, AvgNeighborTemp),
+            {ModuleID, SelfTemp, AvgNeighborTemp, IsWithinRange, Deviation};
         _ ->
             {ModuleID, SelfTemp, no_neighbors, true}
     end.
 
 is_within_range(CurrentTemp, AverageTemp) ->
     Deviation = abs(CurrentTemp - AverageTemp) / AverageTemp,
-    Deviation =< ?ALLOWED_DEVIATION.
+    {Deviation =< ?ALLOWED_DEVIATION, Deviation}.
 
 get_neighbor_avg_temp(NeighborIDs) ->
     {Sum, Count} = lists:foldl(

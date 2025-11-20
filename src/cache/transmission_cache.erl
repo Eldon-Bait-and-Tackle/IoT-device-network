@@ -78,7 +78,7 @@ handle_cast({new_transmission, Transmission = #transmission_record{module_id = M
         
         [{Module_id, Old_transmissions}] ->
             %% modules is loaded and has transmissions
-            ets:insert(?TABLE, {Module_id, [Old_transmissions | Transmission]),
+            ets:insert(?TABLE, {Module_id, [Transmission | Old_transmissions]}),
             {noreply, ok, State};
         [{Module_id, []}] ->
             ets:insert(?TABLE, {Module_id, [Transmission]}),
@@ -86,7 +86,7 @@ handle_cast({new_transmission, Transmission = #transmission_record{module_id = M
         _ ->
             %%% the module is not loaded into the cache, consider adding checking for if the modules is newly registered but not added later. 
             logger:send_log(?MODULE, "Module Tranmission has been verified, but no such module exists within the Transmission Cache, tranmsision is thrown out"),
-            {noreply, {err, "Module Tranmission has been verified, but no such module exists within the Transmission Cache, tranmsision is thrown out"}, State}
+            {noreply, State}
         
         end
     ;
