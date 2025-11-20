@@ -44,16 +44,12 @@ terminate(_Reason, _Req, _State) -> ok.
 decode_payload(Body) ->
     try jiffy:decode(Body, [return_maps]) catch _:_ -> #{} end.
 
-terminate(_Reason, _State = #handshake_handler_state{}) ->
-    ok.
-
-
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
 handle_challenge(Module_id, Chip_id, Req, State) ->
-    Challenge = crypto:rand_bytes(64),
+    Challenge = crypto:strong_rand_bytes(64),
 
             %%% ADD UPDATES TO CHALLENGES?
     case module_cache:store_challenge(Challenge, Module_id, Chip_id) of
@@ -67,7 +63,7 @@ handle_challenge(Module_id, Chip_id, Req, State) ->
 handle_response(Module_id, Chip_id, Response, Req, State) ->
     case module_cache:verify_response(Module_id, Chip_id, Response) of
         {ok, true} ->
-            AuthToken = base64:encode(crypto:rand_bytes(32)),
+            AuthToken = base64:encode(crypto:strong_rand_bytes(32)),
 
             Json = jiffy:encode(#{<<"auth_token">> => AuthToken}),
             {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};

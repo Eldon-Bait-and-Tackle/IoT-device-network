@@ -46,6 +46,9 @@ init([]) ->
     ets:new(?TABLE, [set, protected, named_table, {keypos, 1}]),
     {ok, #transmission_cache_state{}}.
 
+
+%%% FIX
+%%% This blocks the gen server, consdier having a smaller return rather than the entire table in the future? or break this function into its own handler... idk
 handle_call({get_general_last_reading, _Module_id}, _From, State = #transmission_cache_state{}) ->
         %% here they are asking for the most modern readings from each module, this will only pull values from the cache and I should  add a smaller cache that contains each of these values.
         Result = ets:foldl(
@@ -86,6 +89,7 @@ handle_cast({new_transmission, Transmission = #transmission_record{module_id = M
         _ ->
             %%% the module is not loaded into the cache, consider adding checking for if the modules is newly registered but not added later. 
             logger:send_log(?MODULE, "Module Tranmission has been verified, but no such module exists within the Transmission Cache, tranmsision is thrown out"),
+            %%% Also this drops data, I need to update this in the future and decide how to handle this, FIX
             {noreply, State}
         
         end

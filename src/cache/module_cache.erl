@@ -76,7 +76,7 @@ init([]) ->
 
 handle_call({get_module_data, User_auth}, _FROM, State= #module_cache_state{}) ->
 
-
+    ok
 
 
 ;
@@ -123,7 +123,7 @@ handle_call({verify_response, Module_id, Chip_id, Response}, _From, State = #mod
     case ets:lookup(?TABLE, Module_id) of
         [Module = #module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
 
-            ExpectedHmac = crypto:hmac(sha256, SecretKey, Challenge),
+            ExpectedHmac = crypto:mac(sha256, SecretKey, Challenge), %%% This might be broken.. from :hmac/3 to :mac/4...
             IsVerified = (ExpectedHmac == Response),
 
             UpdatedModule = Module#module{challenge = <<>>},

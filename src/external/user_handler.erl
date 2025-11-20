@@ -44,14 +44,14 @@ init([]) ->
 
 
 %%% Dont know how to impliment the logic for AWS user verification, will need to add this later - eldon
-handle_call({user_token_auth, Auth} , _From, State = #user_handler_state{}) ->
+handle_call({user_token_auth, _Auth} , _From, State = #user_handler_state{}) ->
 
-    case true of
+    case ok of
         ok ->
-            {ok, Reuslt = 1};
+            {reply, _, State};
         error ->
             logger:send_log(?SERVER, "user handler has failed to verify or confirm a user"),
-            {error, "user handler has failed to verify or confirm a user"}
+            {reply, error, State}
         end
 ;
 handle_call(_Request, _From, State = #user_handler_state{}) ->
