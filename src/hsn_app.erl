@@ -14,6 +14,22 @@
 -export([start/2, stop/1]).
 
 start(_Type, _Args) ->
+    
+    
+    case hsn_app_sup:start_link() of
+        {ok, SupPid} ->
+            start_cowboy_listener(),
+            {ok, SupPid};
+        Error ->
+            Error
+    end.
+
+stop(_State) ->
+    cowboy:stop_listener(handshake_listener),
+    ok.
+
+start_cowboy_listener() ->
+    
     Dispatch = cowboy_router:compile([
         {'_', [
             {"/handshake", handshake_handler, []},
@@ -21,11 +37,7 @@ start(_Type, _Args) ->
         ]}
     ]),
     
-    {ok, _} = cowboy:start_http(handshake_listener, 100,
+    {ok, _} = cowboy:start_clear(handshake_listener,
         [{port, ?PORT}],
-        #{env => #{dispatch => Dispatch}}),
+        #{env => #{dispatch => Dispatch}}).
 
-    handshake_api_sup:start_link().
-
-stop(_State) ->
-    ok.
