@@ -44,10 +44,11 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, public, named_table, {keypos, 1}]),
+    ets:new(?TABLE, [set, public, named_table, {keypos, 2}]),
     {ok, #map_cache_state{}}.
 
 handle_call({get_neighbors}, _From, State = #map_cache_state{}) ->
+    
     case ets:lookup(?TABLE, Nid) of
         [{Nid, Num, Neighbors, Location} = Reuslt] ->
             {reply, {ok, Neighbors}, State};

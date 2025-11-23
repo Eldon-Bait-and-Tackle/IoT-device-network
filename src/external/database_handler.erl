@@ -13,8 +13,8 @@
     code_change/3,
 
     new_transmission/1, register_module/2,
-    retrieve_module_data/1, retrieve_all_modules_data/0, load_module/1,
-    retrieve_all_modules_last_transmissions/0]).
+    retrieve_module_data/1, load_modules/0,
+    get_latest_transmissions/0]).
 
 -define(SERVER, ?MODULE).
 
@@ -37,15 +37,11 @@ register_module(Chip_id, Hmac) ->
 retrieve_module_data(Module_id) ->
     gen_server:call(?SERVER, {retrieve_module, Module_id}).
 
-retrieve_all_modules_data() ->
-    gen_server:call(?SERVER, {retrieve_all_modules_data}).
+get_latest_transmissions() ->
+    gen_server:call(?SERVER, {get_latest_transmissions}).
 
-retrieve_all_modules_last_transmissions() ->
-    gen_server:call(?SERVER, {retrieve_all_modules_last_transmissions}).
-
-load_module(Module) ->
-    gen_server:cast(?SERVER, {load_modules, Module}).
-
+load_modules() ->
+    gen_server:call(?SERVER, {load_modules}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -71,24 +67,25 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
             {reply, {err, Reason}, State}
     end;
 
-handle_call({retrieve_all_modules_data}, _From, State = #database_handler_state{connection = Connection}) ->
-
-    Query = "SELECT module_id, chip_id, hmac, location FROM modules",
-    case epgsql:squery(Connection, Query) of
-        {ok, _Columns, []} ->
-            {reply, {err, "Unable to find any modules? "}, State};
-        {ok, _Columns, Rows} ->
-            {reply, {ok, row_to_module_record_helper(Rows)}, State};
-        {error, Reason} ->
-            logger:send_log(?SERVER, "An error has occured with retreive_all_module_data"),
-            {reply, {err, Reason}, State}
-    end;
-
+handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
+    
+    Query = "SELECT module_id, chip_id, hmac, latitude, longitude FROM modules",
+    case pgsql:squery(Query) of
+        {ok, _Cols, Rows} ->
+            Recs = [row_to_module(R) || R <- Rows],
+            {ok, Recs};
+        Error ->
+            logger:send_log(?MODULE, "DB Error loading module cache: ~p", [Error]),
+            {error, Error}
+    end.
+    
+    
+    
 
 %%%% FIX
 %%% Consider figuring out how to use SQL ON CONFLICT, this contians a race condition
 handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_state{connection = Connection}) ->
-    FindQuery = "SELECT module_id, chip_id, user_id, hmac, location FROM modules WHERE chip_id = $1",
+    FindQuery = "SELECT module_id, chip_id, hmac, location FROM modules WHERE chip_id = $1",
 
     case epgsql:squery(Connection, FindQuery, [Chip_id]) of
         {ok, _Columns, [Row]} ->
@@ -96,9 +93,10 @@ handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_s
             {reply, {ok, row_to_module_record(Row)}, State};
 
         {ok, _Columns, []} ->
+            %%% DEV
             logger:send_log(?SERVER, "NEW Module has been created and added into the db."),
             InsertQuery = "INSERT INTO modules (chip_id, hmac) VALUES ($1, $2) " ++
-            "RETURNING module_id, chip_id, user_id, hmac, location",
+            "RETURNING module_id, chip_id, hmac, location",
 
             case epgsql:squery(Connection, InsertQuery, [Chip_id, Hmac]) of
                 {ok, _Columns, [NewRow]} ->
@@ -115,33 +113,23 @@ handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_s
     end;
 
 
-handle_call({retrieve_latest_transmission_by_module}, _From, State = #database_handler_state{connection = Connection}) ->
-
-    Query = "", %%% FIX
-    case epgsql:squery(Connection, Query, [Module_id]) of
-        {ok,_Columns, []} ->
-            {reply, {err, "ERROR (retrieve_latest_transmission_by_module), Either unable to get a transmisison, or the module_id does not exist. "}};
-        {ok, _Columns, Row} ->
-            {reply, {err, "No transmissions found in the last 7 days"}, State};
-        {error, Reason} ->
-            logger:send_log(?SERVER, "An error has occured when trying to retrieve_latest_transmission_by_module"),
-            {reply, {err, Reason}, State}
-    end;
 
 
-handle_call({retrieve_all_modules_last_transmissions}, _From, State = #database_handler_state{connection = Connection}) ->
 
-    Query = "SELECT t1.* FROM transmission AS t1 INNER JOIN (SELECT module_id, MAX(transmission_id) AS max_transmission_id FROM transmission WHERE time >= DATE('now', '-7 days') GROUP BY module_id ) AS t2 ON t1.module_id = t2.module_id AND t1.transmission_id = t2.max_transmission_id",
+handle_call({get_latest_transmissions}, _From, State = #database_handler_state{connection = Connection}) ->
 
-    case epgsql:squery(Connection, Query) of
-        {ok, _Columns, []} ->
-            logger:send_log(?SERVER, "An error occured when trying to retreive all module data"),
-            {reply, {err, "An error occured when trying to retreive all module data"}, State};
-        {ok, _Columns, [Rows]} ->
-            {reply, {ok, row_to_transmission_record_helper(Rows)}, State};
-        {error, Reason} ->
-            logger:send_log(?SERVER, Reason),
-            {reply, {err, Reason}, State}
+    Query = "SELECT DISTINCT ON (module_id) "
+    "transmission_id, module_id, time, temperature, moisture, battery "
+    "FROM transmissions "
+    "ORDER BY module_id, time DESC",
+
+    case epgsql:squery(Query) of
+        {ok, _Cols, Rows} ->
+            Records = [row_to_transmission(R) || R <- Rows],
+            {ok, Records};
+        Error ->
+            logger:send_log(?MODULE, "DB Error loading cache: ~p", [Error]),
+            {error, Error}
     end;
 
 handle_call(_Request, _From, State = #database_handler_state{}) ->
@@ -189,6 +177,7 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+
 row_to_transmission_record_helper([Head | Tail]) ->
     [row_to_transmission_record(Head) | row_to_transmission_record_helper(Tail)];
 row_to_transmission_record_helper([]) ->
@@ -197,7 +186,7 @@ row_to_transmission_record_helper([]) ->
 
 
 row_to_transmission_record([Transmission_id, Module_id, Time, Temperature, Moisture, Battery]) ->
-    Record = #transmission_record{
+    Record = #transmission{
         transmission_id = Transmission_id,
         module_id = Module_id,
         time = Time,
@@ -212,11 +201,11 @@ row_to_module_record_helper([Head | Tail]) ->
 row_to_module_record_helper([]) ->
     [].
 
-row_to_module_record([Module_id, Chip_id, Hmac, Location]) ->
+row_to_module_record([Module_id, Chip_id, Hmac, Lat, Long]) ->
     Module_record = #module{
         module_id = Module_id,
         chip_id = Chip_id,
         hmac = Hmac,
-        location = Location
-    },
-    Module_record.
+        location = {Lat, Long},
+        challenge = <<>>
+    }.

@@ -12,7 +12,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
     retrieve_location/1, load_module/1,
-    store_challenge/3, verify_response/3]).
+    store_challenge/3, verify_response/3,
+    load_modules/0]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -45,6 +46,9 @@ verify_response(Module_id, Chip_id, Response) ->
 load_module(Module = #module={}) ->
     gen_server:cast(?SERVER, {load_module, Module}).
 
+load_modules() ->
+    gen_server:cast(?SERVER, load_modules).
+
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
@@ -53,11 +57,8 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, private, named_table, {keypos, 1}]),
-    
-    %%% on init I want to have this load all modules from database, once database is added I will include this
-    
-    
+    ets:new(?TABLE, [set, private, named_table, {keypos, 2}]),
+    gen_server:cast(self(), load_modules),    
     {ok, #module_cache_state{}}.
 
 
@@ -104,7 +105,18 @@ handle_call(_Request, _From, State = #module_cache_state{}) ->
     
     
     
-
+handle_cast(load_modules, State = #module_cache_state{}) ->
+    case database_handler:load_modules() of
+        {ok, Modules} ->
+            ets:insert(?TABLE, Modules),
+            logger:send_log(?MODULE, io_lib:format("Module cache loaded ~p devices.", [length(Modules)])),
+            {noreply, State};
+        {error, _Reason} ->
+            logger:send_log(?MODULE, "Module Loading has failed"),
+            {noreply, State}
+    end;
+        
+        
 handle_cast({load_module, Module = #module{}}, State = #module_cache_state{}) ->
     ets:insert(?TABLE, Module),
     {noreply, State};

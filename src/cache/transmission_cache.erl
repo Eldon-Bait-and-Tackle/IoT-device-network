@@ -34,6 +34,8 @@ get_general_last_reading(Module_id) ->
 get_recent_reading(Module_Id) ->
     gen_server:call(?SERVER, {get_recent_reading, Module_Id}).
 
+load_latest_from_db() ->
+    gen_server:cast(?SERVER, load_latest_from_db).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -43,7 +45,8 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, protected, named_table, {keypos, 1}]),
+    ets:new(?TABLE, [set, protected, named_table, {keypos, 2}]),
+    gen_server:cast(self(), load_latest_from_db),
     {ok, #transmission_cache_state{}}.
 
 
@@ -72,10 +75,19 @@ handle_call({get_last_reading, Id}, _From, State = #transmission_cache_state{}) 
     {reply, Result, State};
 handle_call(_Request, _From, State = #transmission_cache_state{}) ->
     {reply, ok, State}.
-    
-    
 
-handle_cast({new_transmission, Transmission = #transmission_record{module_id = Module_id}}, State = #transmission_cache_state{}) ->
+
+handle_cast(load_latest_from_db, State) ->
+    case database_handler:get_latest_transmissions_all() of
+        {ok, Transmissions} ->
+            ets:insert(?TABLE, Transmissions),
+            logger:send_log(?MODULE, "Cache warm-up complete. Loaded latest records."),
+            {noreply, State};
+        {error, _Reason} ->
+            logger:send_log(?MODULE, "Failed to load most recent transmissions"),
+            {noreply, State}
+    end;
+handle_cast({new_transmission, Transmission = #transmission{module_id = Module_id}}, State = #transmission_cache_state{}) ->
     %%% Module is preverified in a previous step, no need to check it beyond this point unless desired
     case ets:lookup(?TABLE, Module_id) of
         
@@ -114,15 +126,3 @@ code_change(_OldVsn, State = #transmission_cache_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-transmission_to_record(Trasmission = #transmission{temperature = Temperature, moisture = Moisture, battery = Battery}, Time, Module_id) ->
-    #transmission_record{
-    
-        %%% The transmission record will be added when the transmission record is added into the database...
-    
-        module_id = Module_id,
-        time = Time,
-        temperature = Temperature,
-        moisture = Moisture,
-        battery = Battery
-    }.
