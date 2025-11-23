@@ -12,7 +12,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
     retrieve_location/1, load_module/1,
-    store_challenge/3, verify_response/3, verify_module/3]).
+    store_challenge/3, verify_response/3]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -26,20 +26,16 @@
 %%%===================================================================
 
 
-%%% User acces options
+%%% User access options
 
 
 %%% a general release of data is required to have a user authentication for any values beyond processed anonomised user statistics :)
 get_module_data(User_Auth) ->
     gen_server:call({get_module_data, User_Auth}).
 
-
 retrieve_location(Module_id) ->
     gen_server:call(?SERVER, {retrieve_location, Module_id}).
     
-verify_module(Hmac, Chip_id, Module_id) ->
-    gen_server:call(?SERVER, {verify_module, Hmac, Chip_id, Module_id}).
-
 store_challenge(Challenge, Module_id, Chip_id) ->
     gen_server:call(?SERVER, {store_challenge, Challenge, Module_id, Chip_id}).
 
@@ -57,7 +53,6 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    %%% The keypos is 2 here because the record name is first when the record is converted it is {module, module_id ....}
     ets:new(?TABLE, [set, private, named_table, {keypos, 1}]),
     
     %%% on init I want to have this load all modules from database, once database is added I will include this
@@ -73,10 +68,7 @@ handle_call({get_module_data, User_auth}, _FROM, State= #module_cache_state{}) -
 
 
 ;
-
-
 handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}) ->
-
     case ets:lookup(?TABLE, Module_id) of
         [#module{location = Location}] ->
             {reply, {ok, Location}, State};
@@ -85,27 +77,23 @@ handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}
             {reply, {err, "Unkown Module Id"}, State}
         end;
         
-handle_call({store_challenge, Challenge, Module_id, Chip_id}, _From, State = #module_cache_state{}) ->
+handle_call({store_challenge, Challenge, Module_id}, _From, State = #module_cache_state{}) ->
     case ets:lookup(?TABLE, Module_id) of
-        [Module = #module{chip_id = Chip_id}] ->
+        [Module] ->
             UpdatedModule = Module#module{challenge = Challenge},
             ets:insert(?TABLE, UpdatedModule),
-            {reply, {ok, Challenge}, State};
+            {reply, ok, State};
         _ ->
             {reply, {error, "Module not registered or Chip ID mismatch"}, State}
     end.
 
-
 handle_call({verify_response, Module_id, Chip_id, Response}, _From, State = #module_cache_state{}) ->
     case ets:lookup(?TABLE, Module_id) of
         [Module = #module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
-
-            ExpectedHmac = crypto:mac(sha256, SecretKey, Challenge), %%% This might be broken.. from :hmac/3 to :mac/4...
+            ExpectedHmac = crypto:mac(sha256, SecretKey, Challenge, Chip_id), %%% This might be broken.. from :hmac/3 to :mac/4...
             IsVerified = (ExpectedHmac == Response),
-
-            UpdatedModule = Module#module{challenge = <<>>},
+            UpdatedModule = Module#module{challenge = null},
             ets:insert(?TABLE, UpdatedModule),
-
             {reply, {ok, IsVerified}, State};
         _ ->
             {reply, {ok, false}, State}

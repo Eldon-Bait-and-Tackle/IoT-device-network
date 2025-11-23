@@ -24,7 +24,8 @@ init(Req, State) ->
     case {Method, decode_payload(ReqBody)} of
         {<<"POST">>, #{<<"module_id">> := Mid, <<"chip_id">> := Cid, <<"response">> := Response}} ->
             handle_response(Mid, Cid, Response, Req2, State);
-
+        {<<"POST">>, #{<<"module_id">> := Mid, <<"chip_id">> := Cid, <<"response">> := Response}} ->
+            handle_response(Mid, Cid, Response, Req2, State);
         {<<"POST">>, #{<<"module_id">> := Mid, <<"chip_id">> := Cid}} ->
             handle_challenge(Mid, Cid, Req2, State);
 
@@ -40,6 +41,18 @@ decode_payload(Body) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+handle_registration(Chip_id, Hmac, Req, State) ->
+    case database_handler:register_module(Chip_id, Hmac) of
+        {ok, #{module_id := Module_id}} ->
+            Json = jiffy:encode(#{<<"module_id">> => Module_id, <<"status">> => <<"registered">>}),
+            {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};
+        {error, _Reason} ->
+            logger:send_log(?SERVER, "Module Registration has failed"),
+            {ok, cowboy_req:reply(500, Req, <<"Registration Failed">>, State)}
+    end.
+
 
 handle_challenge(Module_id, Chip_id, Req, State) ->
     Challenge = crypto:strong_rand_bytes(64),

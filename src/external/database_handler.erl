@@ -1,4 +1,3 @@
-@ -1,219 +0,0 @@
 %%%-------------------------------------------------------------------
 %%% @author Eldon
 %%% @copyright (C) 2025, <COMPANY>
@@ -62,7 +61,7 @@ init([]) ->
 
 handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state{connection = Connection}) ->
 
-    Query = "SELECT module_id, chip_id, user_id, hmac, location FROM modules WHERE module_id = $1",
+    Query = "SELECT module_id, chip_id, hmac, location FROM modules WHERE module_id = $1",
     case epgsql:squery(Connection, Query, [Module_id]) of
         {ok, _Columns, [] } ->
             {reply, {err, "Module Not Found"}, State};
@@ -74,7 +73,7 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
 
 handle_call({retrieve_all_modules_data}, _From, State = #database_handler_state{connection = Connection}) ->
 
-    Query = "SELECT module_id, chip_id, user_id, hmac, location FROM modules",
+    Query = "SELECT module_id, chip_id, hmac, location FROM modules",
     case epgsql:squery(Connection, Query) of
         {ok, _Columns, []} ->
             {reply, {err, "Unable to find any modules? "}, State};
@@ -213,11 +212,10 @@ row_to_module_record_helper([Head | Tail]) ->
 row_to_module_record_helper([]) ->
     [].
 
-row_to_module_record([Module_id, Chip_id, User_id, Hmac, Location]) ->
+row_to_module_record([Module_id, Chip_id, Hmac, Location]) ->
     Module_record = #module{
         module_id = Module_id,
         chip_id = Chip_id,
-        user_id = User_id,
         hmac = Hmac,
         location = Location
     },
