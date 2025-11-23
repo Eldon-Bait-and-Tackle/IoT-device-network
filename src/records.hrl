@@ -20,13 +20,14 @@
         chip_id,
         hmac,
         location, %%%% {lat, long}
-        challenge
+        challenge %% Not in database, temporary value
 }).
 
 -record(
 	node, {
 		
 		id,
+        location,
 		number_connections,
 		neighbors %%% [Module Ids]
 	}

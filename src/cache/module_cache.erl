@@ -12,7 +12,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
     retrieve_location/1, load_module/1,
-    store_challenge/3, verify_response/3, verify_auth_token/1, verify_module/3]).
+    store_challenge/3, verify_response/3, verify_module/3]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -34,10 +34,6 @@ get_module_data(User_Auth) ->
     gen_server:call({get_module_data, User_Auth}).
 
 
-
-%%% module access options "generally"
-
-
 retrieve_location(Module_id) ->
     gen_server:call(?SERVER, {retrieve_location, Module_id}).
     
@@ -49,9 +45,6 @@ store_challenge(Challenge, Module_id, Chip_id) ->
 
 verify_response(Module_id, Chip_id, Response) ->
     gen_server:call(?SERVER, {verify_response, Module_id, Chip_id, Response}).
-
-verify_auth_token(AuthToken) ->
-    gen_server:call(?SERVER, {verify_auth_token, AuthToken}).
 
 load_module(Module = #module={}) ->
     gen_server:cast(?SERVER, {load_module, Module}).
@@ -65,7 +58,7 @@ start_link() ->
 
 init([]) ->
     %%% The keypos is 2 here because the record name is first when the record is converted it is {module, module_id ....}
-    ets:new(?TABLE, [set, private, named_table, {keypos, 2}]),
+    ets:new(?TABLE, [set, private, named_table, {keypos, 1}]),
     
     %%% on init I want to have this load all modules from database, once database is added I will include this
     
@@ -92,22 +85,6 @@ handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}
             {reply, {err, "Unkown Module Id"}, State}
         end;
         
-        
-
-
-handle_call({verify_module, Hmac, Chip_id, Module_id}, _From, State = #module_cache_state{}) ->
-
-    case ets:lookup(?TABLE, Module_id) of
-        [#module{hmac = Hmac, chip_id = Chip_id, module_id = Module_id}] ->
-            {reply, {ok, true}, State};
-        _ ->
-            logger:send_log(?SERVER, "Module Verification has failed"),
-            {reply, {ok, false}, State}
-        end;
-    
-
-
-
 handle_call({store_challenge, Challenge, Module_id, Chip_id}, _From, State = #module_cache_state{}) ->
     case ets:lookup(?TABLE, Module_id) of
         [Module = #module{chip_id = Chip_id}] ->
