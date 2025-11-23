@@ -8,20 +8,14 @@
 
 -behaviour(cowboy_handler).
 
--export([start_link/0]).
--export([init/2,
-    code_change/3]).
+-export([init/2]).
 
 -define(SERVER, ?MODULE).
-
--record(handshake_handler_state, {}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init(Req, State) ->
     Method = cowboy_req:method(Req),
@@ -38,7 +32,6 @@ init(Req, State) ->
             {ok, cowboy_req:reply(400, Req2, <<"Invalid Request">>, State)}
     end.
 
-terminate(_Reason, _Req, _State) -> ok.
 
 
 decode_payload(Body) ->

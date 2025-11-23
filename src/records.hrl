@@ -2,22 +2,6 @@
 -record(
     transmission, {
     
-        % headers
-        hmac,
-        module_id,
-        chip_id,
-        
-        
-        %% payload
-        temperature,
-        moisture,
-        battery
-    
-}).
-
--record(
-    transmission_record, {
-    
         transmission_id,
         module_id,
     
@@ -34,12 +18,9 @@
     module, {
         module_id,
         chip_id,
-        user_id,
         hmac,
-        location,
+        location, %%%% {lat, long}
         challenge
-        
-        
 }).
 
 -record(
@@ -47,15 +28,12 @@
 		
 		id,
 		number_connections,
-		neighbors,
-		locations
-		
+		neighbors %%% [Module Ids]
 	}
 ).
 
 -record(
     user, {
         user_id,
-        user_auth,
-        modules
+        modules %%% [Module Ids]
 }).
