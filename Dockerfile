@@ -9,9 +9,11 @@ COPY . .
 
 RUN rebar3 as prod release
 
+
+
 FROM alpine:3.19
 
-RUN apk add --no-cache openssl ncurses
+RUN apk add --no-cache openssl ncurses libstdc++ libgcc
 
 WORKDIR /app
 
