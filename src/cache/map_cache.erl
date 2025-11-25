@@ -11,7 +11,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    new_map/1]).
+    new_map/1, get_neighbors/1, get_node/1]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -23,18 +23,18 @@
 %%% API functions
 %%%===================================================================
 
-
+%%% REMOVE THESE IN THE FUTURE, SHOULD BE DIRECT ACCESS!!!!
 new_map(Map) ->
-    gen_server:cast({new_map, Map}).
+    gen_server:cast(?SERVER, {new_map, Map}).
 
 
 get_node(Nid) ->
-    gen_server:call({get_node, Nid}).
+    gen_server:call(?SERVER, {get_node, Nid}).
 
 
 %%% this function will return the {listofneighbors, numberofneighbors}, please refer to doc for more details on this choice
-gen_neighbors(Nid) ->
-    gen_server:call({get_neighbors, Nid}).
+get_neighbors(Nid) ->
+    gen_server:call(?SERVER, {get_neighbors, Nid}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -77,7 +77,7 @@ handle_cast({new_map, Map}, State = #map_cache_state{}) ->
         {error_1, MSG} ->
             logger:send_log(?SERVER, MSG),
             {noreply, State};
-        {error_2 MSG} ->
+        {error_2, MSG} ->
             logger:send_log(?SERVER, MSG),
             {noreply, State};
         _ ->

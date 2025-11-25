@@ -24,7 +24,7 @@
 %%%===================================================================
 
 new_results(Results_map) ->
-    gen_server:cast({new_results, Results_map}).
+    gen_server:cast(?SERVER, {new_results, Results_map}).
 
 get_results_by_module(Module_id) ->
     Result = case ets:lookup(?TABLE, Module_id) of

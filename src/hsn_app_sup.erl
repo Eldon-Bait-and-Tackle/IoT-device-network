@@ -23,8 +23,8 @@ init([]) ->
         intensity => 0,
         period => 1},
 
-    DbSup = #{id => hsn_db_sup,
-        start => {hsn_db_sup, start_link, []},
+    DbSup = #{id => hsn_external_sup,
+        start => {hsn_external_sup, start_link, []},
         type => supervisor,
         shutdown => infinity},
 

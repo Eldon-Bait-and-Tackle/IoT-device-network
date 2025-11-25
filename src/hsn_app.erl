@@ -32,8 +32,11 @@ start_cowboy_listener() ->
     
     Dispatch = cowboy_router:compile([
         {'_', [
+            
             {"/handshake", handshake_handler, []},
-            {"/transmission", transmission_handler, []}
+            {"/transmission", transmission_handler, []},
+            {"/request", request_handler, []}
+            
         ]}
     ]),
     

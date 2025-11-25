@@ -21,10 +21,15 @@ init([]) ->
     SupFlags = #{strategy => one_for_one,
         intensity => 5,
         period => 10},
+    
+    P_manager = #{id => processing_manager,
+        start => {processing_manager, start_link(), []},
+        restart => permanent,
+        type => worker},
 
     Logger = #{id => logger,
         start => {logger, start_link, []},
         restart => permanent,
         type => worker},
 
-    {ok, {SupFlags, [Logger]}}.
+    {ok, {SupFlags, [Logger, P_manager]}}.

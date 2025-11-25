@@ -37,7 +37,7 @@ verify_user_by_auth(Auth) ->
 %%%===================================================================
 
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+    gen_server:start_link(?SERVER, {local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
     {ok, #user_handler_state{}}.

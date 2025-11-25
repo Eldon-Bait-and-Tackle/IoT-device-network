@@ -3,13 +3,15 @@
   {description, "HSN Application"},
   {vsn, "0.5.1"},
   {registered, []},
-  {applications,
-     [kernel,
-      stdlib,
-      crypto,
-      jiffy,
-      cowboy
-     ]},
+  {applications, 
+      [  
+        kernel,
+        stdlib,
+        crypto,
+        jiffy, 
+        cowboy, 
+        epgsql
+      ]},
   	{mod, {hsn_app, []}},
   	{env, [
         {db_settings, #{
