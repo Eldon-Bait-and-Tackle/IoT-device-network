@@ -15,7 +15,7 @@
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
--include("record.hrl").
+-include("records.hrl").
 
 -record(heuristics_cache_state, {}).
 
@@ -60,11 +60,8 @@ init([]) ->
 handle_call(_Request, _From, State = #heuristics_cache_state{}) ->
     {reply, ok, State}.
 handle_cast({new_results, Map}, State = #heuristics_cache_state{}) ->
-
-    
-
-    {noreply, State}
-    ;
+    update_with_new_map(Map),
+    {noreply, State};
 handle_cast(_Request, State = #heuristics_cache_state{}) ->
     {noreply, State}.
 
