@@ -1,7 +1,7 @@
 {application, hsn_app,
  [
   {description, "HSN Application"},
-  {vsn, "0.5.1"},
+  {vsn, "0.9.0"},
   {registered, []},
   {applications, 
       [  
@@ -15,9 +15,9 @@
   	{mod, {hsn_app, []}},
   	{env, [
         {db_settings, #{
-            host => "localhost",
+            host => "hsn_db",
             username => "postgres",
-            password => "postgres",
+            password => "admin1",
             database => "dev_db",
             port => 5432
         }}

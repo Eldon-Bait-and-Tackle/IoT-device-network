@@ -51,7 +51,8 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    {ok, DbConfig} = application:get_env(hsn_app, db_settings),
+    DbConfig = application:get_env(hsn_app, db_settings, #{}),
+    io:format("DEBUG: Connecting to DB with: ~p~n", [DbConfig]),
     {ok, Conn} = epgsql:connect(DbConfig),
     {ok, #database_handler_state{connection = Conn}}.
 
