@@ -1,7 +1,11 @@
 FROM erlang:26-alpine AS builder
 
 WORKDIR /app
+
+RUN apk add --no-cache build-base git
+
 COPY . .
+
 
 RUN rebar3 as prod release
 

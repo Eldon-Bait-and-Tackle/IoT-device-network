@@ -63,7 +63,7 @@ handle_call({get_neighbors, Nid}, _From, State = #map_cache_state{}) ->
 handle_call({get_node, Nid}, _From, State = #map_cache_state{}) ->
 
     case ets:lookup(?TABLE, Nid) of
-        [{Nid, Num, Neighbors, Location} = Result] ->
+        [{Nid, _Num, _Neighbors, _Location} = Result] ->
             {reply, {ok, Result}, State};
         [] ->
             {reply, {error, "map cache failed to find the module of given ID, "}, State}
@@ -78,13 +78,13 @@ handle_cast({new_map, Map}, State = #map_cache_state{}) ->
         {ok, _} ->
             {noreply, State};
         {error_1, MSG} ->
-            logger:send_log(?SERVER, MSG),
+            hsn_logger:send_log(?SERVER, MSG),
             {noreply, State};
         {error_2, MSG} ->
-            logger:send_log(?SERVER, MSG),
+            hsn_logger:send_log(?SERVER, MSG),
             {noreply, State};
         _ ->
-            logger:send_log(?SERVER, "Super unkown problem in the map cache")
+            hsn_logger:send_log(?SERVER, "Super unkown problem in the map cache")
         end
 ;
 handle_cast(_Request, State = #map_cache_state{}) ->
@@ -120,5 +120,5 @@ update_map([Head| Tail]) when is_record(Head, node) ->
     ets:insert(?TABLE, Head),
     update_map(Tail);
 update_map(_) ->
-    logger:send_log(?SERVER, "map cache update map has failed"),
+    hsn_logger:send_log(?SERVER, "map cache update map has failed"),
     {error_2, "map chace, Unkown issue with map update"}.

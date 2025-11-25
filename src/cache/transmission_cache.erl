@@ -34,9 +34,6 @@ get_general_last_reading(Module_id) ->
 get_recent_reading(Module_Id) ->
     gen_server:call(?SERVER, {get_recent_reading, Module_Id}).
 
-load_latest_from_db() ->
-    gen_server:cast(?SERVER, load_latest_from_db).
-
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
@@ -81,10 +78,10 @@ handle_cast(load_latest_from_db, State) ->
     case database_handler:get_latest_transmissions_all() of
         {ok, Transmissions} ->
             ets:insert(?TABLE, Transmissions),
-            logger:send_log(?MODULE, "Cache warm-up complete. Loaded latest records."),
+            hsn_logger:send_log(?MODULE, "Cache warm-up complete. Loaded latest records."),
             {noreply, State};
         {error, _Reason} ->
-            logger:send_log(?MODULE, "Failed to load most recent transmissions"),
+            hsn_logger:send_log(?MODULE, "Failed to load most recent transmissions"),
             {noreply, State}
     end;
 handle_cast({new_transmission, Transmission = #transmission{module_id = Module_id}}, State = #transmission_cache_state{}) ->
@@ -100,7 +97,7 @@ handle_cast({new_transmission, Transmission = #transmission{module_id = Module_i
             {noreply, ok, State};
         _ ->
             %%% the module is not loaded into the cache, consider adding checking for if the modules is newly registered but not added later. 
-            logger:send_log(?MODULE, "Module Tranmission has been verified, but no such module exists within the Transmission Cache, tranmsision is thrown out"),
+            hsn_logger:send_log(?MODULE, "Module Tranmission has been verified, but no such module exists within the Transmission Cache, tranmsision is thrown out"),
             %%% Also this drops data, I need to update this in the future and decide how to handle this, FIX
             {noreply, State}
         

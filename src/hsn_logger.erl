@@ -4,7 +4,7 @@
 %%% @doc
 %%% @end
 %%%-------------------------------------------------------------------
--module(logger).
+-module(hsn_logger).
 
 -behaviour(gen_server).
 -include_lib("kernel/include/logger.hrl").

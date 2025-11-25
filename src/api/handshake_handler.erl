@@ -22,10 +22,14 @@ init(Req, State) ->
     {ok, ReqBody, Req2} = cowboy_req:body(Req),
 
     case {Method, decode_payload(ReqBody)} of
-        {<<"POST">>, #{<<"module_id">> := Mid, <<"response">> := Response}} ->
+        {<<"POST">>, #{<<"handshake">> := <<"response">>, <<"module_id">> := Mid, <<"response">> := Response}} ->
             handle_response(Mid, Response, Req2, State);
-        {<<"POST">>, #{<<"module_id">> := Mid, <<"chip_id">> := Cid}} ->
-            handle_challenge(Mid, Cid, Req2, State);
+        
+        {<<"POST">>, #{<<"handshake">> := <<"challenge">>, <<"module_id">> := Mid}} ->
+            handle_challenge(Mid,Req2, State);
+        
+        {<<"POST">>, #{<<"handshake">> := <<"register">>, <<"chip_id">> := Cid, <<"hmac">> := Hmac}} ->
+            handle_registration(Cid, Hmac, Req, State);
 
         _ ->
             {ok, cowboy_req:reply(400, Req2, <<"Invalid Request">>, State)}
@@ -47,16 +51,16 @@ handle_registration(Chip_id, Hmac, Req, State) ->
             Json = jiffy:encode(#{<<"module_id">> => Module_id, <<"status">> => <<"registered">>}),
             {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};
         {error, _Reason} ->
-            logger:send_log(?SERVER, "Module Registration has failed"),
+            hsn_logger:send_log(?SERVER, "Module Registration has failed"),
             {ok, cowboy_req:reply(500, Req, <<"Registration Failed">>, State)}
     end.
 
 
-handle_challenge(Module_id, Chip_id, Req, State) ->
+handle_challenge(Module_id, Req, State) ->
     Challenge = crypto:strong_rand_bytes(64),
 
             %%% ADD UPDATES TO CHALLENGES?
-    case module_cache:store_challenge(Challenge, Module_id, Chip_id) of
+    case module_cache:store_challenge(Challenge, Module_id) of
         {ok, _Challenge} ->
             Json = jiffy:encode(#{<<"challenge">> => Challenge}),
             {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};

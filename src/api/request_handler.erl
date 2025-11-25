@@ -36,7 +36,7 @@ init(Req, State) ->
                     Json = jiffy:encode(#{<<"results">> => ResultMap}),
                     cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2);
                 {error, _} ->
-                    logger:send_log(?SERVER, "Module has not been found for some request"),
+                    hsn_logger:send_log(?SERVER, "Module has not been found for some request"),
                     cowboy_req:reply(404, #{}, <<"Module not found">>, Req2)
             end;
 

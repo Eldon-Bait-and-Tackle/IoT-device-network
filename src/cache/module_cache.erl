@@ -12,7 +12,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
     retrieve_location/1, load_module/1,
-    store_challenge/2, verify_response/2,
+    store_challenge/2, verify_response/2, get_module_data/1,
     load_modules/0]).
 
 -define(SERVER, ?MODULE).
@@ -63,7 +63,9 @@ init([]) ->
 
 
 
-handle_call({get_module_data, User_auth}, _FROM, State= #module_cache_state{}) ->
+
+%%% NOT CURRENTLY IMPLEMENTED
+handle_call({get_module_data, _User_auth}, _FROM, State= #module_cache_state{}) ->
 
     {reply, {ok, null}, State}
 
@@ -109,10 +111,10 @@ handle_cast(load_modules, State = #module_cache_state{}) ->
     case database_handler:load_modules() of
         {ok, Modules} ->
             ets:insert(?TABLE, Modules),
-            logger:send_log(?MODULE, io_lib:format("Module cache loaded ~p devices.", [length(Modules)])),
+            hsn_logger:send_log(?MODULE, io_lib:format("Module cache loaded ~p devices.", [length(Modules)])),
             {noreply, State};
         {error, _Reason} ->
-            logger:send_log(?MODULE, "Module Loading has failed"),
+            hsn_logger:send_log(?MODULE, "Module Loading has failed"),
             {noreply, State}
     end;
         

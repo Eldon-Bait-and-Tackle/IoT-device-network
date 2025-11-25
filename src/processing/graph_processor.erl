@@ -28,7 +28,7 @@ start_link(Points) ->
 init([Points]) ->
     {ok, GabrielGraph} = gabriel_graph(Points),
     map_cache:new_map(GabrielGraph),
-    logger:send_log(?MODULE, "Gabriel Graph Calculated"),
+    hsn_logger:send_log(?MODULE, "Gabriel Graph Calculated"),
     
     {ok, #graph_processor_state{}}.
 

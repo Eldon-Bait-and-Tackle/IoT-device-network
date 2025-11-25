@@ -27,9 +27,9 @@ init([]) ->
         restart => permanent,
         type => worker},
 
-    Logger = #{id => logger,
-        start => {logger, start_link, []},
+    hsn_logger = #{id => hsn_logger,
+        start => {hsn_logger, start_link, []},
         restart => permanent,
         type => worker},
 
-    {ok, {SupFlags, [Logger, P_manager]}}.
+    {ok, {SupFlags, [hsn_logger, P_manager]}}.

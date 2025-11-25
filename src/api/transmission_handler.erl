@@ -15,7 +15,7 @@ init(Req, State) ->
             Payload = {Mid, Temp, Moisture, Bat},
             handle_transmission(Mid, Secret, Payload, Req2, State);
         _ ->
-            logger:send_log(?MODULE, "Invalid Transmission Request"),
+            hsn_logger:send_log(?MODULE, "Invalid Transmission Request"),
             {ok, cowboy_req:reply(400, Req2, <<"Invalid Transmission Request">>, State)}
     end.
 

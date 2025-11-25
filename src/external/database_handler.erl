@@ -73,10 +73,10 @@ handle_call({load_modules}, _From, State = #database_handler_state{connection = 
     case pgsql:squery(Connection, Query) of
         {ok, _Cols, Rows} ->
             Recs = [row_to_module_record(R) || R <- Rows],
-            {ok, Recs};
+            {reply, Recs, State};
         Error ->
-            logger:send_log(?MODULE, "DB Error loading module cache: ~p", [Error]),
-            {error, Error}
+            hsn_logger:send_log(?MODULE, "DB Error loading module cache: ~p", [Error]),
+            {reply, error, State}
     end;
     
     
@@ -89,26 +89,26 @@ handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_s
 
     case epgsql:squery(Connection, FindQuery, [Chip_id]) of
         {ok, _Columns, [Row]} ->
-            logger:send_log(?SERVER, "This request is attempting to register a module that already exsits...?"),
+            hsn_logger:send_log(?SERVER, "This request is attempting to register a module that already exsits...?"),
             {reply, {ok, row_to_module_record(Row)}, State};
 
         {ok, _Columns, []} ->
             %%% DEV
-            logger:send_log(?SERVER, "NEW Module has been created and added into the db."),
+            hsn_logger:send_log(?SERVER, "NEW Module has been created and added into the db."),
             InsertQuery = "INSERT INTO modules (chip_id, hmac) VALUES ($1, $2) " ++
             "RETURNING module_id, chip_id, hmac, location",
 
             case epgsql:squery(Connection, InsertQuery, [Chip_id, Hmac]) of
-                {ok, _Columns, [NewRow]} ->
+                {ok, _Columns2, [NewRow]} ->
                     NewModuleRecord = row_to_module_record(NewRow),
                     module_cache:load_module(NewModuleRecord),
                     {reply, {ok, NewModuleRecord}, State};
                 {error, Reason} ->
-                    logger:send_log(?SERVER, Reason),
+                    hsn_logger:send_log(?SERVER, Reason),
                     {reply, {err, Reason}, State}
             end;
         {error, Reason} ->
-            logger:send_log(?SERVER, Reason),
+            hsn_logger:send_log(?SERVER, Reason),
             {reply, {err, Reason}, State}
     end;
 
@@ -128,7 +128,7 @@ handle_call({get_latest_transmissions}, _From, State = #database_handler_state{c
             Records = [row_to_transmission_record(R) || R <- Rows],
             {reply, Records, State};
         Error ->
-            logger:send_log(?MODULE, "DB Error loading cache: ~p", [Error]),
+            hsn_logger:send_log(?MODULE, "DB Error loading cache: ~p", [Error]),
             {reply, {error, Error}, State}
     end;
 
@@ -137,7 +137,7 @@ handle_call(_Request, _From, State = #database_handler_state{}) ->
 
 
 
-handle_cast({new_transmission, Payload}, State = #database_handler_state{1 = Connection}) ->
+handle_cast({new_transmission, Payload}, State = #database_handler_state{connection = Connection}) ->
 
     {Module_id, Temperature, Moisture, Battery} = Payload,
 
@@ -154,10 +154,10 @@ handle_cast({new_transmission, Payload}, State = #database_handler_state{1 = Con
             transmission_cache:new_transmission(NewRecord),
             {noreply, State};
         {error, Reason} ->
-            logger:send_log(?SERVER, Reason),
+            hsn_logger:send_log(?SERVER, Reason),
             {noreply, State};
         _Other ->
-            logger:send_log(?SERVER, "epgsql has failed with unknown issues"),
+            hsn_logger:send_log(?SERVER, "epgsql has failed with unknown issues"),
             {noreply, State}
     end;
 
@@ -196,4 +196,5 @@ row_to_module_record([Module_id, Chip_id, Hmac, Lat, Long]) ->
         hmac = Hmac,
         location = {Lat, Long},
         challenge = <<>>
-    }.
+    },
+    Module_record.

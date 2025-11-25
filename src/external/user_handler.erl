@@ -51,7 +51,7 @@ handle_call({user_token_auth, _Auth} , _From, State = #user_handler_state{}) ->
         ok ->
             {reply, {ok, null}, State};
         error ->
-            logger:send_log(?SERVER, "user handler has failed to verify or confirm a user"),
+            hsn_logger:send_log(?SERVER, "user handler has failed to verify or confirm a user"),
             {reply, error, State}
         end
 ;
@@ -74,6 +74,3 @@ code_change(_OldVsn, State = #user_handler_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-
-verify_token() ->
-    true.
