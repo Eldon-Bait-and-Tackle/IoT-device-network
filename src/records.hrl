@@ -25,7 +25,6 @@
 
 -record(
 	node, {
-		
 		id,
         location,
 		number_connections,

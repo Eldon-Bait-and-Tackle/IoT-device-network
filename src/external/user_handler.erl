@@ -11,7 +11,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    verify_user_by_auth]).
+    verify_user_by_auth/1]).
 
 -define(SERVER, ?MODULE).
 
@@ -23,6 +23,7 @@
 
 
 %%% returns {ok, _}, and {error, Reason} as conditions
+
 verify_user_by_auth(Auth) ->
     gen_server:call({user_token_auth, Auth}).
 
@@ -48,7 +49,7 @@ handle_call({user_token_auth, _Auth} , _From, State = #user_handler_state{}) ->
 
     case ok of
         ok ->
-            {reply, _, State};
+            {reply, {ok, null}, State};
         error ->
             logger:send_log(?SERVER, "user handler has failed to verify or confirm a user"),
             {reply, error, State}
@@ -75,5 +76,4 @@ code_change(_OldVsn, State = #user_handler_state{}, _Extra) ->
 
 
 verify_token() ->
-    case true of ->
-{ok} ->
+    true.

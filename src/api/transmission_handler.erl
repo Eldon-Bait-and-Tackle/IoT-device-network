@@ -11,9 +11,9 @@ init(Req, State) ->
     {ok, Body, Req2} = cowboy_req:body(Req),
 
     case {Method, decode_transmission_payload(Body)} of
-        {<<"POST">>, #{<<"module_id">> := Mid, <<"hmac">> := Hmac, <<"temperature">> := Temp, <<"moisture">> := Moisture, <<"battery">> := Bat, <<"chip_id">> := Cid} = Data} ->
+        {<<"POST">>, #{<<"module_id">> := Mid, <<"secret">> := Secret, <<"temperature">> := Temp, <<"moisture">> := Moisture, <<"battery">> := Bat} = _Data} ->
             Payload = {Mid, Temp, Moisture, Bat},
-            handle_transmission(Mid, Hmac, Cid, Payload, Req2, State);
+            handle_transmission(Mid, Secret, Payload, Req2, State);
         _ ->
             logger:send_log(?MODULE, "Invalid Transmission Request"),
             {ok, cowboy_req:reply(400, Req2, <<"Invalid Transmission Request">>, State)}
@@ -27,12 +27,13 @@ decode_transmission_payload(Body) ->
                     end, #{}, UrlDecoded)
     catch _:_ -> #{} end.
 
-module_validation(Module_id, Hmac, Cid) ->
-    module_cache:verify_module(Hmac, Module_id, Cid).
+
+module_validation(Module_id, Secret) ->
+    module_cache:verify_response(Module_id, Secret).
 
 
-handle_transmission(Module_id, Hmac, Chip_id, Payload, Req, State) ->
-    case module_validation(Module_id, Hmac, Chip_id) of
+handle_transmission(Module_id, Secret, Payload, Req, State) ->
+    case module_validation(Module_id, Secret) of
         {ok, true} ->
             
             %%% we have to add to the database first before we add to the cahce beccause of the unique number system. 
@@ -43,8 +44,8 @@ handle_transmission(Module_id, Hmac, Chip_id, Payload, Req, State) ->
             %%% What does this state function actually do? we should not be returning this outside the api even if it not used?
 
             {ok, cowboy_req:reply(200, Req, <<"OK">>, State)};
-        {error, invalid_hmac} ->
-            {ok, cowboy_req:reply(401, Req, <<"Unauthorized: Invalid HMAC">>, State)};
+        {error, invalid_secret} ->
+            {ok, cowboy_req:reply(401, Req, <<"Unauthorized: Invalid SECRET">>, State)};
         _ ->
             {ok, cowboy_req:reply(403, Req, <<"Forbidden">>, State)}
     end.

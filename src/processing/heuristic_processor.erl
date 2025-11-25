@@ -29,8 +29,9 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-init([ManagerPid]) ->
+init([_ManagerPid]) ->
     Result = process(),
+    save_to_cache(Result),
     %%% gen_server:cast(ManagerPid, {process_return, Result}),
     {stop, normal, #heuristic_processor_state{}}.
 
@@ -89,7 +90,7 @@ get_neighbor_avg_temp(NeighborIDs) ->
 
 get_module_temp(ModuleID) ->
     case transmission_cache:get_recent_reading(ModuleID) of
-        {ok, #transmission_record{temperature = Temp}} ->
+        {ok, #transmission{temperature = Temp}} ->
             Temp;
         {error, _} ->
             ?HEURISTIC_TEMP

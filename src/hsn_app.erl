@@ -35,7 +35,7 @@ start_cowboy_listener() ->
             
             {"/handshake", handshake_handler, []},
             {"/transmission", transmission_handler, []},
-            {"/request", request_handler, []}
+            {"/api", request_handler, []}
             
         ]}
     ]),

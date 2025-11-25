@@ -11,7 +11,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    new_map/1, get_neighbors/1, get_node/1]).
+    new_map/1, get_neighbors/1, get_node/1, get_map/0]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -27,14 +27,17 @@
 new_map(Map) ->
     gen_server:cast(?SERVER, {new_map, Map}).
 
-
 get_node(Nid) ->
     gen_server:call(?SERVER, {get_node, Nid}).
-
 
 %%% this function will return the {listofneighbors, numberofneighbors}, please refer to doc for more details on this choice
 get_neighbors(Nid) ->
     gen_server:call(?SERVER, {get_neighbors, Nid}).
+
+
+get_map() ->
+    Objects = ets:tab2list(?TABLE),
+    lists:map(fun node_to_map/1, Objects).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -47,10 +50,10 @@ init([]) ->
     ets:new(?TABLE, [set, public, named_table, {keypos, 2}]),
     {ok, #map_cache_state{}}.
 
-handle_call({get_neighbors}, _From, State = #map_cache_state{}) ->
+handle_call({get_neighbors, Nid}, _From, State = #map_cache_state{}) ->
     
     case ets:lookup(?TABLE, Nid) of
-        [{Nid, Num, Neighbors, Location} = Reuslt] ->
+        [{Nid, _Num, Neighbors, _Location} = _Result] ->
             {reply, {ok, Neighbors}, State};
         [] ->
             {reply, {error, "map cache failed to find the module of given ID, "}, State}
@@ -60,7 +63,7 @@ handle_call({get_neighbors}, _From, State = #map_cache_state{}) ->
 handle_call({get_node, Nid}, _From, State = #map_cache_state{}) ->
 
     case ets:lookup(?TABLE, Nid) of
-        [{Nid, Num, Neighbors, Location} = Reuslt] ->
+        [{Nid, Num, Neighbors, Location} = Result] ->
             {reply, {ok, Result}, State};
         [] ->
             {reply, {error, "map cache failed to find the module of given ID, "}, State}
@@ -101,13 +104,21 @@ code_change(_OldVsn, State = #map_cache_state{}, _Extra) ->
 %%%===================================================================
 
 
+node_to_map(#node{id = Id, location = {Lat, Long}, number_connections = Conns, neighbors = Neighbors}) ->
+    #{
+        <<"id">> => Id,
+        <<"location">> => [Lat, Long], %% Convert tuple {Lat, Long} to List [Lat, Long]
+        <<"connections">> => Conns,
+        <<"neighbors">> => Neighbors
+    }.
+
+
+
 update_map([]) ->
     {ok, yuppers}
 ;
-update_map([Head = #node{Id = id, Num = number_connections, Neighbors = neighbors, Location = location}| Tail]) ->
+update_map([Head = #node{id = Id, number_connections = Num, neighbors = Neighbors, location = Location}| Tail]) ->
     ets:insert(?TABLE, {Id, Num, Neighbors, Location}),
     update_map(Tail);
-update_map(Input) when Input != #node{} ->
-    {error_1, "map cache has been given the wrong input type (not a node record)"}
-update_map() ->
-    {error_2, "map chace, Unkown issue with map update"}
+update_map(_) ->
+    {error_2, "map chace, Unkown issue with map update"}.

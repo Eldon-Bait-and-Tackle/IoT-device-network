@@ -22,10 +22,8 @@ init(Req, State) ->
     {ok, ReqBody, Req2} = cowboy_req:body(Req),
 
     case {Method, decode_payload(ReqBody)} of
-        {<<"POST">>, #{<<"module_id">> := Mid, <<"chip_id">> := Cid, <<"response">> := Response}} ->
-            handle_response(Mid, Cid, Response, Req2, State);
-        {<<"POST">>, #{<<"module_id">> := Mid, <<"chip_id">> := Cid, <<"response">> := Response}} ->
-            handle_response(Mid, Cid, Response, Req2, State);
+        {<<"POST">>, #{<<"module_id">> := Mid, <<"response">> := Response}} ->
+            handle_response(Mid, Response, Req2, State);
         {<<"POST">>, #{<<"module_id">> := Mid, <<"chip_id">> := Cid}} ->
             handle_challenge(Mid, Cid, Req2, State);
 
@@ -66,8 +64,8 @@ handle_challenge(Module_id, Chip_id, Req, State) ->
             {ok, cowboy_req:reply(403, Req, <<"Forbidden">>, State)}
     end.
 
-handle_response(Module_id, Chip_id, Response, Req, State) ->
-    case module_cache:verify_response(Module_id, Chip_id, Response) of
+handle_response(Module_id, Response, Req, State) ->
+    case module_cache:verify_response(Module_id, Response) of
         {ok, true} ->
             AuthToken = base64:encode(crypto:strong_rand_bytes(32)),
 

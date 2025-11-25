@@ -12,7 +12,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
     retrieve_location/1, load_module/1,
-    store_challenge/3, verify_response/3,
+    store_challenge/2, verify_response/2,
     load_modules/0]).
 
 -define(SERVER, ?MODULE).
@@ -37,13 +37,13 @@ get_module_data(User_Auth) ->
 retrieve_location(Module_id) ->
     gen_server:call(?SERVER, {retrieve_location, Module_id}).
     
-store_challenge(Challenge, Module_id, Chip_id) ->
-    gen_server:call(?SERVER, {store_challenge, Challenge, Module_id, Chip_id}).
+store_challenge(Challenge, Module_id) ->
+    gen_server:call(?SERVER, {store_challenge, Challenge, Module_id}).
 
-verify_response(Module_id, Chip_id, Response) ->
-    gen_server:call(?SERVER, {verify_response, Module_id, Chip_id, Response}).
+verify_response(Module_id, Response) ->
+    gen_server:call(?SERVER, {verify_response, Module_id, Response}).
 
-load_module(Module = #module={}) ->
+load_module(Module = #module{}) ->
     gen_server:cast(?SERVER, {load_module, Module}).
 
 load_modules() ->
@@ -65,7 +65,7 @@ init([]) ->
 
 handle_call({get_module_data, User_auth}, _FROM, State= #module_cache_state{}) ->
 
-    ok
+    {reply, {ok, null}, State}
 
 
 ;
@@ -86,9 +86,9 @@ handle_call({store_challenge, Challenge, Module_id}, _From, State = #module_cach
             {reply, ok, State};
         _ ->
             {reply, {error, "Module not registered or Chip ID mismatch"}, State}
-    end.
+    end;
 
-handle_call({verify_response, Module_id, Chip_id, Response}, _From, State = #module_cache_state{}) ->
+handle_call({verify_response, Module_id, Response}, _From, State = #module_cache_state{}) ->
     case ets:lookup(?TABLE, Module_id) of
         [Module = #module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
             ExpectedHmac = crypto:mac(sha256, SecretKey, Challenge, Chip_id), %%% This might be broken.. from :hmac/3 to :mac/4...

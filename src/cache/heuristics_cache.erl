@@ -10,7 +10,7 @@
 
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-    new_results/1, get_results_by_module/1, get_results_by_list/1,
+    new_results/1, get_results_by_module/1, get_results_by_list/1, get_all_results/0,
     code_change/3]).
 
 -define(SERVER, ?MODULE).
@@ -27,15 +27,16 @@ new_results(Results_map) ->
     gen_server:cast(?SERVER, {new_results, Results_map}).
 
 get_results_by_module(Module_id) ->
-    Result = case ets:lookup(?TABLE, Module_id) of
-         [] ->
-             logger:send_log(?MODULE, "Failed to get results by module"),
-             {error, not_found};
-         %%% should I make this a record?
-         [{Module_id, _Self_temp, _Avg_neighbors_temp, _Within_range_bool, _Deviation} = Payload] ->
-             {ok, Payload}
-         end,
-    {ok, Result}.
+    case ets:lookup(?TABLE, Module_id) of
+        [] ->
+            {error, not_found};
+        [Payload] ->
+            {ok, to_map(Payload)}
+    end.
+
+get_all_results() ->
+    Objects = ets:tab2list(?TABLE),
+    lists:map(fun to_map/1, Objects).
 
 get_results_by_list(Mid_list) ->
     Result = lists:flatmap(
@@ -54,7 +55,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, public, named_table, {keypos, 1}]),
+    ets:new(?TABLE, [set, public, named_table, {keypos, 2}]),
     {ok, #heuristics_cache_state{}}.
 
 handle_call(_Request, _From, State = #heuristics_cache_state{}) ->
@@ -78,6 +79,14 @@ code_change(_OldVsn, State = #heuristics_cache_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+to_map({Module_id, Self_temp, Avg_temp, Within_range, Deviation}) ->
+    #{
+        <<"module_id">> => Module_id,
+        <<"self_temp">> => Self_temp,
+        <<"avg_neighbor_temp">> => Avg_temp,
+        <<"within_range">> => Within_range,
+        <<"deviation">> => Deviation
+    }.
 
 update_with_new_map([]) ->
     ok;
