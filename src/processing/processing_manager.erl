@@ -46,7 +46,7 @@ handle_call(_Request, _From, State = #processing_manager_state{}) ->
 
 
 handle_cast({heuristics}, State = #processing_manager_state{}) ->
-    {ok, Pid} = supervisor:start_child(heuristic_processor, [self()]),
+    {ok, _Pid} = supervisor:start_child(heuristic_processor, [self()]),
     {noreply, State};
 handle_cast(_Request, State = #processing_manager_state{}) ->
     {noreply, State}.

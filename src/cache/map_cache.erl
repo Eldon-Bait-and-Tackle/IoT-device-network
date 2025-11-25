@@ -115,10 +115,10 @@ node_to_map(#node{id = Id, location = {Lat, Long}, number_connections = Conns, n
 
 
 update_map([]) ->
-    {ok, yuppers}
-;
-update_map([Head = #node{id = Id, number_connections = Num, neighbors = Neighbors, location = Location}| Tail]) ->
-    ets:insert(?TABLE, {Id, Num, Neighbors, Location}),
+    {ok, complete};
+update_map([Head| Tail]) when is_record(Head, node) ->
+    ets:insert(?TABLE, Head),
     update_map(Tail);
 update_map(_) ->
+    logger:send_log(?SERVER, "map cache update map has failed"),
     {error_2, "map chace, Unkown issue with map update"}.

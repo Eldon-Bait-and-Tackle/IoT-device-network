@@ -70,14 +70,14 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
 handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
     
     Query = "SELECT module_id, chip_id, hmac, latitude, longitude FROM modules",
-    case pgsql:squery(Query) of
+    case pgsql:squery(Connection, Query) of
         {ok, _Cols, Rows} ->
-            Recs = [row_to_module(R) || R <- Rows],
+            Recs = [row_to_module_record(R) || R <- Rows],
             {ok, Recs};
         Error ->
             logger:send_log(?MODULE, "DB Error loading module cache: ~p", [Error]),
             {error, Error}
-    end.
+    end;
     
     
     
@@ -123,13 +123,13 @@ handle_call({get_latest_transmissions}, _From, State = #database_handler_state{c
     "FROM transmissions "
     "ORDER BY module_id, time DESC",
 
-    case epgsql:squery(Query) of
+    case epgsql:squery(Connection, Query) of
         {ok, _Cols, Rows} ->
-            Records = [row_to_transmission(R) || R <- Rows],
-            {ok, Records};
+            Records = [row_to_transmission_record(R) || R <- Rows],
+            {reply, Records, State};
         Error ->
             logger:send_log(?MODULE, "DB Error loading cache: ~p", [Error]),
-            {error, Error}
+            {reply, {error, Error}, State}
     end;
 
 handle_call(_Request, _From, State = #database_handler_state{}) ->
@@ -137,7 +137,7 @@ handle_call(_Request, _From, State = #database_handler_state{}) ->
 
 
 
-handle_cast({new_transmission, Payload}, State = #database_handler_state{connection = Connection}) ->
+handle_cast({new_transmission, Payload}, State = #database_handler_state{1 = Connection}) ->
 
     {Module_id, Temperature, Moisture, Battery} = Payload,
 
@@ -178,13 +178,6 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%%===================================================================
 
 
-row_to_transmission_record_helper([Head | Tail]) ->
-    [row_to_transmission_record(Head) | row_to_transmission_record_helper(Tail)];
-row_to_transmission_record_helper([]) ->
-    [].
-
-
-
 row_to_transmission_record([Transmission_id, Module_id, Time, Temperature, Moisture, Battery]) ->
     Record = #transmission{
         transmission_id = Transmission_id,
@@ -195,11 +188,6 @@ row_to_transmission_record([Transmission_id, Module_id, Time, Temperature, Moist
         battery = Battery
     },
     Record.
-
-row_to_module_record_helper([Head | Tail]) ->
-    [row_to_module_record(Head) | row_to_module_record_helper(Tail)];
-row_to_module_record_helper([]) ->
-    [].
 
 row_to_module_record([Module_id, Chip_id, Hmac, Lat, Long]) ->
     Module_record = #module{
