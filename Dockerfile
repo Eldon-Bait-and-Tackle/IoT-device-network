@@ -17,6 +17,6 @@ WORKDIR /app
 
 COPY --from=builder /app/_build/prod/rel/hsn_app .
 
-EXPOSE 8080
+EXPOSE 8082
 
-CMD ["bin/my_app", "foreground"]
+CMD ["bin/hsn_app", "foreground"]
