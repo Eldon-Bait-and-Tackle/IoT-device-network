@@ -32,7 +32,7 @@ init(Req, State) ->
             handle_registration(Cid, Hmac, Req, State);
 
         _ ->
-            Req3 = cowboy_req:reply(400, #{}, Req2, <<"Invalid Request Pattern">>),
+            Req3 = cowboy_req:reply(400, #{}, <<"Invalid Request Pattern">>, Req2),
             {ok, Req3, State}
     end.
 

@@ -93,12 +93,18 @@ handle_call({store_challenge, Challenge, Module_id}, _From, State = #module_cach
 handle_call({verify_response, Module_id, Response}, _From, State = #module_cache_state{}) ->
     case safe_lookup(Module_id) of
         [Module = #module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
-            ExpectedHmac = crypto:mac(sha256, SecretKey, Challenge, Chip_id), %%% This might be broken.. from :hmac/3 to :mac/4...
-            IsVerified = (ExpectedHmac == Response),
-            UpdatedModule = Module#module{challenge = null},
-            ets:insert(?TABLE, UpdatedModule),
-            {reply, {ok, IsVerified}, State};
-        _ ->
+            case Challenge of
+                undefined ->
+                    IsVerified = (SecretKey =:= Response),
+                    {reply, {ok, IsVerified}, State};
+            _ ->
+                ExpectedMac = crypto:mac(hmac, sha256, SecretKey, Challenge), %%% This might be broken.. from :hmac/3 to :mac/4...
+                IsVerified = (SecretKey =:= Response),
+                UpdatedModule = Module#module{challenge = undefined},
+                ets:insert(?TABLE, UpdatedModule),
+                {reply, {ok, IsVerified}, State}
+            end;
+        [] ->
             {reply, {ok, false}, State}
     end;
 
@@ -144,10 +150,8 @@ code_change(_OldVsn, State = #module_cache_state{}, _Extra) ->
 safe_lookup(Id) ->
     case ets:lookup(?TABLE, Id) of
         [] when is_integer(Id) ->
-            %% Try looking it up as Binary
             ets:lookup(?TABLE, integer_to_binary(Id));
         [] when is_binary(Id) ->
-            %% Try looking it up as Integer
             try ets:lookup(?TABLE, binary_to_integer(Id))
             catch _:_ -> [] end;
         Result -> Result
