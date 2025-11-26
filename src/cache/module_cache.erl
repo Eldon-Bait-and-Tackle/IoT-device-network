@@ -85,7 +85,7 @@ handle_call({store_challenge, Challenge, Module_id}, _From, State = #module_cach
         [Module] ->
             UpdatedModule = Module#module{challenge = Challenge},
             ets:insert(?TABLE, UpdatedModule),
-            {reply, ok, State};
+            {reply, {ok, null}, State};
         _ ->
             {reply, {error, "Module not registered or Chip ID mismatch"}, State}
     end;
