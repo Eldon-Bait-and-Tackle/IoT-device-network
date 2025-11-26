@@ -16,7 +16,7 @@
   	{env, [
         {db_settings, #{
             host => "hsn_db",
-            username => "postgres",
+            username => "admin",
             password => "admin1",
             database => "dev_db",
             port => 5432

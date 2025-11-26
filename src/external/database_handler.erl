@@ -70,14 +70,14 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
 
 handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
     
-    Query = "SELECT module_id, chip_id, hmac, latitude, longitude FROM modules",
-    case pgsql:squery(Connection, Query) of
+    Query = "SELECT module_id, chip_id, hmac, lat, long FROM modules",
+    case epgsql:squery(Connection, Query) of
         {ok, _Cols, Rows} ->
             Recs = [row_to_module_record(R) || R <- Rows],
-            {reply, Recs, State};
-        Error ->
-            hsn_logger:send_log(?MODULE, "DB Error loading module cache: ~p", [Error]),
-            {reply, error, State}
+            {reply, {ok, Recs}, State};
+        {Error, Reason} ->
+            hsn_logger:send_log(?MODULE, "DB Error loading module cache: ~p ", [Error]),
+            {reply, {error, Reason}, State}
     end;
     
     
@@ -179,23 +179,20 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%%===================================================================
 
 
-row_to_transmission_record([Transmission_id, Module_id, Time, Temperature, Moisture, Battery]) ->
-    Record = #transmission{
+row_to_transmission_record({Transmission_id, Module_id, Time, Temperature, Moisture, Battery}) ->
+    #transmission{
         transmission_id = Transmission_id,
         module_id = Module_id,
         time = Time,
         temperature = Temperature,
         moisture = Moisture,
         battery = Battery
-    },
-    Record.
+    }.
 
-row_to_module_record([Module_id, Chip_id, Hmac, Lat, Long]) ->
-    Module_record = #module{
+row_to_module_record({Module_id, Chip_id, Hmac, Lat, Long}) ->
+    #module{
         module_id = Module_id,
         chip_id = Chip_id,
         hmac = Hmac,
-        location = {Lat, Long},
-        challenge = <<>>
-    },
-    Module_record.
+        location = {Lat, Long}
+    }.

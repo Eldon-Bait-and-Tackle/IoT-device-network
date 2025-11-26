@@ -58,7 +58,7 @@ start_link() ->
 
 init([]) ->
     ets:new(?TABLE, [set, private, named_table, {keypos, 2}]),
-    gen_server:cast(self(), load_modules),    
+    load_modules(),
     {ok, #module_cache_state{}}.
 
 
@@ -72,7 +72,7 @@ handle_call({get_module_data, _User_auth}, _FROM, State= #module_cache_state{}) 
 
 ;
 handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}) ->
-    case ets:lookup(?TABLE, Module_id) of
+    case safe_lookup(Module_id) of
         [#module{location = Location}] ->
             {reply, {ok, Location}, State};
         _ ->
@@ -81,7 +81,7 @@ handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}
         end;
         
 handle_call({store_challenge, Challenge, Module_id}, _From, State = #module_cache_state{}) ->
-    case ets:lookup(?TABLE, Module_id) of
+    case safe_lookup(Module_id) of
         [Module] ->
             UpdatedModule = Module#module{challenge = Challenge},
             ets:insert(?TABLE, UpdatedModule),
@@ -91,7 +91,7 @@ handle_call({store_challenge, Challenge, Module_id}, _From, State = #module_cach
     end;
 
 handle_call({verify_response, Module_id, Response}, _From, State = #module_cache_state{}) ->
-    case ets:lookup(?TABLE, Module_id) of
+    case safe_lookup(Module_id) of
         [Module = #module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
             ExpectedHmac = crypto:mac(sha256, SecretKey, Challenge, Chip_id), %%% This might be broken.. from :hmac/3 to :mac/4...
             IsVerified = (ExpectedHmac == Response),
@@ -139,3 +139,16 @@ code_change(_OldVsn, State = #module_cache_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+safe_lookup(Id) ->
+    case ets:lookup(?TABLE, Id) of
+        [] when is_integer(Id) ->
+            %% Try looking it up as Binary
+            ets:lookup(?TABLE, integer_to_binary(Id));
+        [] when is_binary(Id) ->
+            %% Try looking it up as Integer
+            try ets:lookup(?TABLE, binary_to_integer(Id))
+            catch _:_ -> [] end;
+        Result -> Result
+    end.

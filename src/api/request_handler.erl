@@ -16,32 +16,37 @@
 
 init(Req, State) ->
     Method = cowboy_req:method(Req),
-    {ok, ReqBody, Req2} = cowboy_req:body(Req),
+    {ok, ReqBody, Req2} = cowboy_req:read_body(Req),
 
     case {Method, decode_payload(ReqBody)} of
 
         {<<"GET">>, #{<<"request">> := <<"get_heuristics">>}} ->
             Results = heuristics_cache:get_all_results(),
             Json = jiffy:encode(#{<<"results">> => Results}),
-            {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};
+            Req3 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2),
+            {ok, Req3, State};
 
         {<<"GET">>, #{<<"request">> := <<"get_map">>}} ->
             Results = map_cache:get_map(),
             Json = jiffy:encode(#{<<"results">> => Results}),
-            {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};
+            Req3 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2),
+            {ok, Req3, State};
 
         {<<"GET">>, #{<<"request">> := <<"get_module">>, <<"module_id">> := Module_id}} ->
             case heuristics_cache:get_results_by_module(Module_id) of
                 {ok, ResultMap} ->
                     Json = jiffy:encode(#{<<"results">> => ResultMap}),
-                    cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2);
+                    Req3 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2),
+                    {ok, Req3, State};
                 {error, _} ->
                     hsn_logger:send_log(?SERVER, "Module has not been found for some request"),
-                    cowboy_req:reply(404, #{}, <<"Module not found">>, Req2)
+                    Req3 = cowboy_req:reply(404, #{}, <<"Module not found">>, Req2),
+                    {ok, Req3, State}
             end;
 
         _ ->
-            {ok, cowboy_req:reply(400, Req2, <<"Invalid Request">>, State)}
+            Req3 = cowboy_req:reply(400, #{}, <<"Invalid Request">>, Req2),
+            {ok, Req3, State}
     end.
 
 %%%===================================================================

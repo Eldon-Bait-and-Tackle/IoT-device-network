@@ -19,7 +19,7 @@
 
 init(Req, State) ->
     Method = cowboy_req:method(Req),
-    {ok, ReqBody, Req2} = cowboy_req:body(Req),
+    {ok, ReqBody, Req2} = cowboy_req:read_body(Req),
 
     case {Method, decode_payload(ReqBody)} of
         {<<"POST">>, #{<<"handshake">> := <<"response">>, <<"module_id">> := Mid, <<"response">> := Response}} ->
@@ -32,7 +32,8 @@ init(Req, State) ->
             handle_registration(Cid, Hmac, Req, State);
 
         _ ->
-            {ok, cowboy_req:reply(400, Req2, <<"Invalid Request">>, State)}
+            Req3 = cowboy_req:reply(400, #{}, Req2, <<"Invalid Request Pattern">>),
+            {ok, Req3, State}
     end.
 
 
@@ -49,10 +50,12 @@ handle_registration(Chip_id, Hmac, Req, State) ->
     case database_handler:register_module(Chip_id, Hmac) of
         {ok, #{module_id := Module_id}} ->
             Json = jiffy:encode(#{<<"module_id">> => Module_id, <<"status">> => <<"registered">>}),
-            {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};
+            Req2 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req),
+            {ok, Req2, State};
         {error, _Reason} ->
             hsn_logger:send_log(?SERVER, "Module Registration has failed"),
-            {ok, cowboy_req:reply(500, Req, <<"Registration Failed">>, State)}
+            Req2 = cowboy_req:reply(500, #{}, <<"Registration Failed">>, Req),
+            {ok, Req2, State}
     end.
 
 
@@ -62,19 +65,23 @@ handle_challenge(Module_id, Req, State) ->
             %%% ADD UPDATES TO CHALLENGES?
     case module_cache:store_challenge(Challenge, Module_id) of
         {ok, _Challenge} ->
-            Json = jiffy:encode(#{<<"challenge">> => Challenge}),
-            {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};
+            EncodedChallenge = base64:encode(Challenge),
+            Json = jiffy:encode(#{<<"challenge">> => EncodedChallenge}),
+            Req2 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req),
+            {ok, Req2, State};
         _ ->
-            {ok, cowboy_req:reply(403, Req, <<"Forbidden">>, State)}
+            Req2 = cowboy_req:reply(403, #{}, <<"Forbidden - Module Not Found">>, Req),
+            {ok, Req2, State}
     end.
 
 handle_response(Module_id, Response, Req, State) ->
     case module_cache:verify_response(Module_id, Response) of
         {ok, true} ->
             AuthToken = base64:encode(crypto:strong_rand_bytes(32)),
-
             Json = jiffy:encode(#{<<"auth_token">> => AuthToken}),
-            {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Req, Json), State};
+            Req2 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req),
+            {ok, Req2, State};
         _ ->
-            {ok, cowboy_req:reply(403, Req, <<"Forbidden">>, State)}
+            Req2 = cowboy_req:reply(401, #{}, <<"Unauthorized">>, Req),
+            {ok, Req2, State}
     end.

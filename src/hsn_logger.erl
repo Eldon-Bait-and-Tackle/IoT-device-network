@@ -35,23 +35,23 @@ send_log(Module, Message) ->
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-init(File) ->
-    case file:open(File, [write, append, delayed_write, {encoding, utf8}]) of
-        {ok, IoDevice} ->
-            {ok, IoDevice};
-        {error, Reason} ->
-            {stop, Reason}
-    end.
+init([]) ->
+    %%% this was breaking it so I am going to disable this for now...
+%%    case file:open(File, [write, append, delayed_write, {encoding, utf8}]) of
+%%        {ok, IoDevice} ->
+%%            {ok, IoDevice};
+%%        {error, Reason} ->
+%%            {stop, Reason}
+%%    end.
+    {ok, #logger_state{}}.
 
 handle_call(_Request, _From, State = #logger_state{}) ->
     {reply, ok, State}.
 
-handle_cast({log, Module, Message}, IoDevice) ->
-    
+handle_cast({log, Module, Message}, State) ->
     %%% this is the saving logic of the logging messages
-    LogLine = io_lib:format("~p ~p: ~s~n", [erlang:localtime(), Module, Message]),
-    file:write(IoDevice, LogLine),
-    {noreply, IoDevice};
+    io:format("~p [~p]: ~s~n", [erlang:localtime(), Module, Message]),
+    {noreply, State };
 
 handle_cast(_Request, State = #logger_state{}) ->
     {noreply, State}.

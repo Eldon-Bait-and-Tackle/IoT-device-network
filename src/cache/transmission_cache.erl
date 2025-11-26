@@ -11,7 +11,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
-    new_transmission/1, get_general_last_reading/1, get_recent_reading/1]).
+    new_transmission/1, get_general_last_reading/1, get_recent_reading/1, load_latest_from_db/0]).
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -34,6 +34,10 @@ get_general_last_reading(Module_id) ->
 get_recent_reading(Module_Id) ->
     gen_server:call(?SERVER, {get_recent_reading, Module_Id}).
 
+
+load_latest_from_db() -> gen_server:cast(?SERVER, load_latest_from_db).
+
+
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
@@ -43,7 +47,7 @@ start_link() ->
 
 init([]) ->
     ets:new(?TABLE, [set, protected, named_table, {keypos, 2}]),
-    gen_server:cast(self(), load_latest_from_db),
+    load_latest_from_db(),
     {ok, #transmission_cache_state{}}.
 
 
@@ -74,8 +78,8 @@ handle_call(_Request, _From, State = #transmission_cache_state{}) ->
     {reply, ok, State}.
 
 
-handle_cast(load_latest_from_db, State) ->
-    case database_handler:get_latest_transmissions_all() of
+handle_cast({load_latest_from_db}, State) ->
+    case database_handler:get_latest_transmissions() of
         {ok, Transmissions} ->
             ets:insert(?TABLE, Transmissions),
             hsn_logger:send_log(?MODULE, "Cache warm-up complete. Loaded latest records."),

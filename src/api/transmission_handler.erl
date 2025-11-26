@@ -8,7 +8,7 @@
 
 init(Req, State) ->
     Method = cowboy_req:method(Req),
-    {ok, Body, Req2} = cowboy_req:body(Req),
+    {ok, Body, Req2} = cowboy_req:read_body(Req),
 
     case {Method, decode_transmission_payload(Body)} of
         {<<"POST">>, #{<<"module_id">> := Mid, <<"secret">> := Secret, <<"temperature">> := Temp, <<"moisture">> := Moisture, <<"battery">> := Bat} = _Data} ->
@@ -16,15 +16,13 @@ init(Req, State) ->
             handle_transmission(Mid, Secret, Payload, Req2, State);
         _ ->
             hsn_logger:send_log(?MODULE, "Invalid Transmission Request"),
-            {ok, cowboy_req:reply(400, Req2, <<"Invalid Transmission Request">>, State)}
+            {ok, cowboy_req:reply(400, <<"Invalid Transmission Request">>, Req2, State)}
     end.
 
 decode_transmission_payload(Body) ->
     try
-        UrlDecoded = uri_string:dissect_query(Body),
-        lists:foldl(fun({Key, Value}, Acc) ->
-            maps:put(list_to_binary(Key), list_to_binary(Value), Acc)
-                    end, #{}, UrlDecoded)
+        List = uri_string:dissect_query(Body),
+        maps:from_list(List)
     catch _:_ -> #{} end.
 
 
@@ -43,9 +41,9 @@ handle_transmission(Module_id, Secret, Payload, Req, State) ->
 
             %%% What does this state function actually do? we should not be returning this outside the api even if it not used?
 
-            {ok, cowboy_req:reply(200, Req, <<"OK">>, State)};
+            {ok, cowboy_req:reply(200, <<"OK">>, Req, State)};
         {error, invalid_secret} ->
-            {ok, cowboy_req:reply(401, Req, <<"Unauthorized: Invalid SECRET">>, State)};
+            {ok, cowboy_req:reply(401, <<"Unauthorized: Invalid SECRET">>, Req,  State)};
         _ ->
-            {ok, cowboy_req:reply(403, Req, <<"Forbidden">>, State)}
+            {ok, cowboy_req:reply(403, <<"Forbidden">>, Req,  State)}
     end.

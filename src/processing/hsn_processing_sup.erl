@@ -18,18 +18,21 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-    SupFlags = #{strategy => one_for_one,
+    
+    SupFlags = #{
+        strategy => one_for_one,
         intensity => 5,
-        period => 10},
+        period => 10
+    },
     
     P_manager = #{id => processing_manager,
-        start => {processing_manager, start_link(), []},
+        start => {processing_manager, start_link, []},
         restart => permanent,
         type => worker},
 
-    hsn_logger = #{id => hsn_logger,
+    Hsn_logger = #{id => hsn_logger,
         start => {hsn_logger, start_link, []},
         restart => permanent,
         type => worker},
 
-    {ok, {SupFlags, [hsn_logger, P_manager]}}.
+    {ok, {SupFlags, [Hsn_logger, P_manager]}}.
