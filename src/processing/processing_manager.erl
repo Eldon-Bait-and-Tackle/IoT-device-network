@@ -5,7 +5,6 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(processing_manager).
-
 -behaviour(gen_server).
 
 -export([start_link/0]).
@@ -15,28 +14,15 @@
 ]).
 
 -define(SERVER, ?MODULE).
--define(TICK, ?MODULE).
+-define(TICK, 30000).
 
--record(processing_manager_state, {
-    timer_reference
-}).
-
-%%%===================================================================
-%%% Spawning and gen_server implementation
-%%%===================================================================
+-record(processing_manager_state, {timer_reference}).
 
 heuristics_processing() ->
     gen_server:cast(?SERVER, {heuristics}).
 
 graph_processing() ->
     gen_server:cast(?SERVER, {graph}).
-
-
-
-
-%%%===================================================================
-%%% API functions
-%%%===================================================================
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
@@ -45,36 +31,35 @@ init([]) ->
     Timer = erlang:send_after(?TICK, self(), tick),
     {ok, #processing_manager_state{timer_reference = Timer}}.
 
-handle_call(_Request, _From, State = #processing_manager_state{}) ->
+handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-
-handle_cast({heuristics}, State = #processing_manager_state{}) ->
-    {ok, _Pid} = supervisor:start_child(heuristic_processor, [self()]),
+handle_cast({heuristics}, State) ->
+    heuristic_processor:start_link(),
     {noreply, State};
-handle_cast(_Request, State = #processing_manager_state{}) ->
+
+handle_cast({graph}, State) ->
+    graph_processor:start_link(),
+    {noreply, State};
+
+handle_cast(_Request, State) ->
     {noreply, State}.
 
-
-
-handle_info(tick, State#{timer_reference = OldTimerRef}) ->
+handle_info(tick, State = #processing_manager_state{timer_reference = OldTimerRef}) ->
     erlang:cancel_timer(OldTimerRef),
-    process(),
-    Timer = erlang:send_after(?TICK, self(), tick),
-    {noreply, State#{timer_reference = Timer}};
 
-handle_info(_Info, State = #processing_manager_state{}) ->
+    graph_processing(),
+    timer:sleep(1000),
+    heuristics_processing(),
+
+    Timer = erlang:send_after(?TICK, self(), tick),
+    {noreply, State#processing_manager_state{timer_reference = Timer}};
+
+handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State = #processing_manager_state{}) ->
+terminate(_Reason, _State) ->
     ok.
 
-code_change(_OldVsn, State = #processing_manager_state{}, _Extra) ->
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-
-
-process() ->

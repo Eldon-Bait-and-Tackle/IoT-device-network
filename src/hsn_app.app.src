@@ -15,7 +15,7 @@
   	{mod, {hsn_app, []}},
   	{env, [
         {db_settings, #{
-            host => "hsn_db",
+            host => "10.89.0.6",
             username => "admin",
             password => "admin1",
             database => "dev_db",

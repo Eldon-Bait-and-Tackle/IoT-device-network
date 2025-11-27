@@ -31,8 +31,13 @@ new_transmission(Transmission) ->
 get_general_last_reading(Module_id) ->
     gen_server:call(?SERVER, {get_general_last_reading, Module_id}).
 
-get_recent_reading(Module_Id) ->
-    gen_server:call(?SERVER, {get_recent_reading, Module_Id}).
+get_recent_reading(Id) ->
+    case ets:lookup(?TABLE, Id) of
+         [] ->
+             {err, not_found};
+         [{Id, [LatestRecord | _]}] ->
+             {ok, LatestRecord}
+     end.
 
 
 load_latest_from_db() -> gen_server:cast(?SERVER, load_latest_from_db).

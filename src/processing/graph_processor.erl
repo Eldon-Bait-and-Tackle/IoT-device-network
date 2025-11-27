@@ -8,7 +8,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1]).
+-export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3]).
 
@@ -22,15 +22,20 @@
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
-start_link(Points) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Points], []).
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-init([Points]) ->
-    {ok, GabrielGraph} = gabriel_graph(Points),
-    map_cache:new_map(GabrielGraph),
-    hsn_logger:send_log(?MODULE, "Gabriel Graph Calculated"),
-    
-    {ok, #graph_processor_state{}}.
+init([]) ->
+
+    case module_cache:get_module_map() of
+        {ok, Points} when map_size(Points) > 0 ->
+            {ok, GabrielGraph} = gabriel_graph(Points),
+            map_cache:new_map(GabrielGraph),
+            hsn_logger:send_log(?MODULE, "New Gabriel Graph Calculated");
+        _ ->
+            hsn_logger:send_log(?MODULE, "Something is preventing the graph processor... ")
+    end,
+    {stop, normal}.
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -53,11 +58,11 @@ code_change(_OldVsn, State, _Extra) ->
 
 gabriel_graph(Map) ->
     Keys = maps:keys(Map),
-    Graph = gabriel_graph(Map, Keys, Map),
+    Graph = gabriel_graph(Map, Keys, #{}),
     {ok, Graph}.
 
 gabriel_graph(_Map, [], AccMap) ->
-    AccMap;
+    {ok, AccMap};
 
 gabriel_graph(Map, [CurrentID | RemainingKeys], AccMap) ->
     CurrentNode = maps:get(CurrentID, Map),

@@ -75,7 +75,7 @@ handle_call(_Request, _From, State = #map_cache_state{}) ->
 
 handle_cast({new_map, Map}, State = #map_cache_state{}) ->
     case update_map(Map) of
-        {ok, _} ->
+        {ok, complete} ->
             {noreply, State};
         {error_1, MSG} ->
             hsn_logger:send_log(?SERVER, MSG),

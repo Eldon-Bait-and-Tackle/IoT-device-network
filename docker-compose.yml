@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  hsn_service:
+    image: eldonbird/hsn:latest
+    build: .
+    container_name: hsn_app
+    ports:
+      - "8082:8082"
+    restart: always
+    networks:
+      - hsn_net
+
+networks:
+  hsn_net:
+    external: true

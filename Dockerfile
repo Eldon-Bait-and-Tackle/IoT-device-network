@@ -6,10 +6,7 @@ RUN apk add --no-cache build-base git
 
 COPY . .
 
-
 RUN rebar3 as prod release
-
-
 
 FROM alpine:3.19
 
