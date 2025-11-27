@@ -59,7 +59,7 @@ init([]) ->
 handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state{connection = Connection}) ->
 
     Query = "SELECT module_id, chip_id, hmac, location FROM modules WHERE module_id = $1",
-    case epgsql:squery(Connection, Query, [Module_id]) of
+    case epgsql:equery(Connection, Query, [Module_id]) of
         {ok, _Columns, [] } ->
             {reply, {err, "Module Not Found"}, State};
         {ok, _Columns, [Row]} ->
@@ -71,7 +71,7 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
 handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
     
     Query = "SELECT module_id, chip_id, hmac, lat, long FROM modules",
-    case epgsql:squery(Connection, Query) of
+    case epgsql:equery(Connection, Query) of
         {ok, _Cols, Rows} ->
             Recs = [row_to_module_record(R) || R <- Rows],
             {reply, {ok, Recs}, State};
@@ -88,7 +88,7 @@ handle_call({load_modules}, _From, State = #database_handler_state{connection = 
 handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_state{connection = Connection}) ->
     FindQuery = "SELECT module_id, chip_id, hmac, location FROM modules WHERE chip_id = $1",
 
-    case epgsql:squery(Connection, FindQuery, [Chip_id]) of
+    case epgsql:equery(Connection, FindQuery, [Chip_id]) of
         {ok, _Columns, [Row]} ->
             hsn_logger:send_log(?SERVER, "This request is attempting to register a module that already exsits...?"),
             {reply, {ok, row_to_module_record(Row)}, State};
@@ -99,7 +99,7 @@ handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_s
             InsertQuery = "INSERT INTO modules (chip_id, hmac) VALUES ($1, $2) " ++
             "RETURNING module_id, chip_id, hmac, location",
 
-            case epgsql:squery(Connection, InsertQuery, [Chip_id, Hmac]) of
+            case epgsql:equery(Connection, InsertQuery, [Chip_id, Hmac]) of
                 {ok, _Columns2, [NewRow]} ->
                     NewModuleRecord = row_to_module_record(NewRow),
                     module_cache:load_module(NewModuleRecord),
@@ -124,7 +124,7 @@ handle_call({get_latest_transmissions}, _From, State = #database_handler_state{c
     "FROM transmissions "
     "ORDER BY module_id, time DESC",
 
-    case epgsql:squery(Connection, Query) of
+    case epgsql:equery(Connection, Query) of
         {ok, _Cols, Rows} ->
             Records = [row_to_transmission_record(R) || R <- Rows],
             {reply, Records, State};
@@ -149,7 +149,7 @@ handle_cast({new_transmission, Payload}, State = #database_handler_state{connect
 
     Params = [Module_id, Temperature, Moisture, Battery],
 
-    case epgsql:squery(Connection, Query, Params) of
+    case epgsql:equery(Connection, Query, Params) of
         {ok, _Columns, [Row]} ->
             NewRecord = row_to_transmission_record(Row),
             transmission_cache:new_transmission(NewRecord),
