@@ -32,17 +32,23 @@ module_validation(Module_id, Secret) ->
 
 
 handle_transmission(Module_id, Secret, Payload, Req, State) ->
+    
     case module_validation(Module_id, Secret) of
         {ok, true} ->
 
-            database_handler:new_transmission(Payload),
-            
-
-            %%% What does this state function actually do? we should not be returning this outside the api even if it not used?
-
-            Req2 = cowboy_req:reply(200, #{}, <<"OK">>, Req),
-            {ok, Req2, State};
+            case database_handler:new_transmission(Payload) of
+                ok ->
+                    Req2 = cowboy_req:reply(200, #{}, <<"OK">>, Req),
+                    {ok, Req2, State};
+                
+                {error, Reason} ->
+                    hsn_logger:send_log(?MODULE, Reason),
+                    Req2 = cowboy_req:reply(40, #{}, <<"Failure">>, Req),
+                    {ok, Req2, State}
+                end;
+        
         _ ->
             Req2 = cowboy_req:reply(403, #{}, <<"Forbidden">>, Req),
             {ok, Req2, State}
+    
     end.
