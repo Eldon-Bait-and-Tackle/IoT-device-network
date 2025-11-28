@@ -49,8 +49,7 @@ handle_call(_Request, _From, State = #logger_state{}) ->
     {reply, ok, State}.
 
 handle_cast({log, Module, Message}, State) ->
-    %%% this is the saving logic of the logging messages
-    io:format("~p [~p]: ~s~n", [erlang:localtime(), Module, Message]),
+    io:format("~p [~p]: ~p~n", [erlang:localtime(), Module, Message]),
     {noreply, State };
 
 handle_cast(_Request, State = #logger_state{}) ->

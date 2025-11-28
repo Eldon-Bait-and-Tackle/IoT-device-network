@@ -53,12 +53,19 @@ start_link() ->
 init([]) ->
     DbConfig = application:get_env(hsn_app, db_settings, #{}),
     io:format("DEBUG: Connecting to DB with: ~p~n", [DbConfig]),
-    {ok, Conn} = epgsql:connect(DbConfig),
-    {ok, #database_handler_state{connection = Conn}}.
+
+
+    case connection(DbConfig) of
+        {ok, Connection} ->
+            {ok, #database_handler_state{connection = Connection}};
+        {error, Reason} ->
+            io:format("DEBUG: Connecting to DB with: ~p~n", [Reason]),
+            {stop, Reason}
+    end.
 
 handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state{connection = Connection}) ->
 
-    Query = "SELECT module_id, chip_id, hmac, location FROM modules WHERE module_id = $1",
+    Query = "SELECT module_id, chip_id, hmac, lat, long FROM modules WHERE module_id = $1",
     case epgsql:equery(Connection, Query, [Module_id]) of
         {ok, _Columns, [] } ->
             {reply, {err, "Module Not Found"}, State};
@@ -71,12 +78,12 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
 handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
     
     Query = "SELECT module_id, chip_id, hmac, lat, long FROM modules",
-    case epgsql:equery(Connection, Query) of
+    case epgsql:equery(Connection, Query, []) of
         {ok, _Cols, Rows} ->
             Recs = [row_to_module_record(R) || R <- Rows],
             {reply, {ok, Recs}, State};
-        {Error, Reason} ->
-            hsn_logger:send_log(?MODULE, "DB Error loading module cache: ~p ", [Error]),
+        {error, Reason} ->
+            hsn_logger:send_log(?MODULE, "DB Error loading module cache: ~p ", [Reason]),
             {reply, {error, Reason}, State}
     end;
     
@@ -86,7 +93,7 @@ handle_call({load_modules}, _From, State = #database_handler_state{connection = 
 %%%% FIX
 %%% Consider figuring out how to use SQL ON CONFLICT, this contians a race condition
 handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_state{connection = Connection}) ->
-    FindQuery = "SELECT module_id, chip_id, hmac, location FROM modules WHERE chip_id = $1",
+    FindQuery = "SELECT module_id, chip_id, hmac, lat, long FROM modules WHERE chip_id = $1",
 
     case epgsql:equery(Connection, FindQuery, [Chip_id]) of
         {ok, _Columns, [Row]} ->
@@ -97,7 +104,7 @@ handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_s
             %%% DEV
             hsn_logger:send_log(?SERVER, "NEW Module has been created and added into the db."),
             InsertQuery = "INSERT INTO modules (chip_id, hmac) VALUES ($1, $2) " ++
-            "RETURNING module_id, chip_id, hmac, location",
+            "RETURNING module_id, chip_id, hmac, lat, long",
 
             case epgsql:equery(Connection, InsertQuery, [Chip_id, Hmac]) of
                 {ok, _Columns2, [NewRow]} ->
@@ -121,7 +128,7 @@ handle_call({get_latest_transmissions}, _From, State = #database_handler_state{c
 
     Query = "SELECT DISTINCT ON (module_id) "
     "transmission_id, module_id, time, temperature, moisture, battery "
-    "FROM transmissions "
+    "FROM transmission "
     "ORDER BY module_id, time DESC",
 
     case epgsql:equery(Connection, Query) of
@@ -177,6 +184,10 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+connection(Config) ->
+    epgsql:connect(Config).
 
 
 row_to_transmission_record({Transmission_id, Module_id, Time, Temperature, Moisture, Battery}) ->

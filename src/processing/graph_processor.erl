@@ -15,9 +15,6 @@
 -define(SERVER, ?MODULE).
 -include("records.hrl").
 
-%% Define a local record for neighbors if not in records.hrl
--record(graph_processor_state, {}).
-
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
