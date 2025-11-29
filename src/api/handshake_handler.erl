@@ -48,7 +48,7 @@ decode_payload(Body) ->
 
 handle_registration(Chip_id, Hmac, Req, State) ->
     case database_handler:register_module(Chip_id, Hmac) of
-        {ok, #{module_id := Module_id}} ->
+        {ok, Module_id} ->
             Json = jiffy:encode(#{<<"module_id">> => Module_id, <<"status">> => <<"registered">>}),
             Req2 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req),
             {ok, Req2, State};

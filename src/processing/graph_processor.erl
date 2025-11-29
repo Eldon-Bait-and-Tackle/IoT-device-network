@@ -75,30 +75,39 @@ gabriel_graph(Map, [CurrentID | RemainingKeys], AccMap) ->
 
 find_gabriel_neighbors(CurrentNode, CandidateIDs, Map) ->
     lists:filtermap(fun(OtherID) ->
+
         OtherNode = maps:get(OtherID, Map),
+
         check_gabriel_condition(CurrentNode, OtherNode, Map)
-                    end, CandidateIDs).
+                    end,
+        CandidateIDs).
 
 %% Check if OtherNode is a Gabriel neighbor of CurrentNode
 check_gabriel_condition(CurrentNode, OtherNode, Map) ->
-    #node{id = OtherID, location = {L21, L22}} = OtherNode,
+    #node{location = {L21, L22}} = OtherNode,
     #node{location = {L11, L12}} = CurrentNode,
 
-    Dist = math:sqrt(math:pow(L21 - L11, 2) + math:pow(L22 - L12, 2)),
-    Radius = Dist / 2,
+    case {is_number(L11), is_number(L12), is_number(L21), is_number(L22)} of
+        {true, true, true, true} ->
+            Dist = math:sqrt(math:pow(L21 - L11, 2) + math:pow(L22 - L12, 2)),
+            Radius = Dist / 2,
 
-    MidX = (L11 + L21) / 2,
-    MidY = (L12 + L22) / 2,
+            MidX = (L11 + L21) / 2,
+            MidY = (L12 + L22) / 2,
 
-    AllNodes = maps:values(Map),
-    IsBlocked = lists:any(fun(TestNode) ->
-        is_in_circle(TestNode, MidX, MidY, Radius)
-                          end, AllNodes -- [CurrentNode, OtherNode]),
+            AllNodes = maps:values(Map),
+            IsBlocked = lists:any(fun(TestNode) ->
+                is_in_circle(TestNode, MidX, MidY, Radius)
+                                  end, AllNodes -- [CurrentNode, OtherNode]),
 
-    case IsBlocked of
-        true -> false;
-        false -> {true, OtherID}
+            case IsBlocked of
+                true -> true;
+                false -> false
+            end;
+        _ ->
+            false
     end.
+
 
 is_in_circle(#node{location = {TX, TY}}, CX, CY, Radius) ->
     Dist = math:sqrt(math:pow(TX - CX, 2) + math:pow(TY - CY, 2)),
