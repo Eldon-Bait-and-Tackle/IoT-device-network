@@ -13,6 +13,7 @@
     code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(MAX_DIST, 5).
 -include("records.hrl").
 
 %%%===================================================================
@@ -103,10 +104,7 @@ check_gabriel_condition(CurrentNode, OtherNode, Map) ->
                 is_in_circle(TestNode, MidX, MidY, Radius)
                                   end, AllNodes -- [CurrentNode, OtherNode]),
 
-            case IsBlocked of
-                true -> true;
-                false -> false
-            end;
+            not IsBlocked;
         _ ->
             false
     end.

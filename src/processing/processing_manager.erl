@@ -13,8 +13,10 @@
     heuristics_processing/0, graph_processing/0
 ]).
 
+
+-define(HOUR, 3600000).
 -define(SERVER, ?MODULE).
--define(TICK, 30000).
+-define(TICK, ?HOUR * 1).
 
 -record(processing_manager_state, {timer_reference}).
 
@@ -28,6 +30,9 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
+    graph_processing(),
+    timer:sleep(1000),
+    heuristics_processing(),
     Timer = erlang:send_after(?TICK, self(), tick),
     {ok, #processing_manager_state{timer_reference = Timer}}.
 

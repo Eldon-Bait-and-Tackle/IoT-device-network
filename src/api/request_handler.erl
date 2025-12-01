@@ -16,38 +16,58 @@
 
 init(Req, State) ->
     Method = cowboy_req:method(Req),
-    {ok, ReqBody, Req2} = cowboy_req:read_body(Req),
 
-    case {Method, decode_payload(ReqBody)} of
+    %% Standard CORS headers required by browsers
+    Headers = #{
+        <<"content-type">> => <<"application/json">>,
+        <<"access-control-allow-origin">> => <<"*">>,
+        <<"access-control-allow-methods">> => <<"GET, POST, OPTIONS">>,
+        <<"access-control-allow-headers">> => <<"content-type">>
+    },
 
-        {<<"GET">>, #{<<"request">> := <<"get_heuristics">>}} ->
-            Results = heuristics_cache:get_all_results(),
-            Json = jiffy:encode(#{<<"results">> => Results}),
-            Req3 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2),
-            {ok, Req3, State};
+    case Method of
+        <<"OPTIONS">> ->
+            Req2 = cowboy_req:reply(200, Headers, <<>>, Req),
+            {ok, Req2, State};
 
-        {<<"GET">>, #{<<"request">> := <<"get_map">>}} ->
-            Results = map_cache:get_map(),
-            Json = jiffy:encode(#{<<"results">> => Results}),
-            Req3 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2),
-            {ok, Req3, State};
-
-        {<<"GET">>, #{<<"request">> := <<"get_module">>, <<"module_id">> := Module_id}} ->
-            case heuristics_cache:get_results_by_module(Module_id) of
-                {ok, ResultMap} ->
-                    Json = jiffy:encode(#{<<"results">> => ResultMap}),
-                    Req3 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req2),
-                    {ok, Req3, State};
-                {error, _} ->
-                    hsn_logger:send_log(?SERVER, "Module has not been found for some request"),
-                    Req3 = cowboy_req:reply(404, #{}, <<"Module not found">>, Req2),
-                    {ok, Req3, State}
-            end;
+        <<"GET">> ->
+            Params = maps:from_list(cowboy_req:parse_qs(Req)),
+            handle_get(maps:get(<<"request">>, Params, undefined), Params, Req, Headers, State);
 
         _ ->
-            Req3 = cowboy_req:reply(400, #{}, <<"Invalid Request">>, Req2),
-            {ok, Req3, State}
+            Req2 = cowboy_req:reply(405, Headers, <<"Method Not Allowed">>, Req),
+            {ok, Req2, State}
     end.
+
+handle_get(<<"get_heuristics">>, _Params, Req, Headers, State) ->
+    Results = heuristics_cache:get_all_results(),
+    Json = jiffy:encode(#{<<"results">> => Results}),
+    Req2 = cowboy_req:reply(200, Headers, Json, Req),
+    {ok, Req2, State};
+
+handle_get(<<"get_map">>, _Params, Req, Headers, State) ->
+    Results = map_cache:get_map(),
+    Json = jiffy:encode(#{<<"results">> => Results}),
+    Req2 = cowboy_req:reply(200, Headers, Json, Req),
+    {ok, Req2, State};
+
+handle_get(<<"get_module">>, Params, Req, Headers, State) ->
+    RawId = maps:get(<<"module_id">>, Params, <<"0">>),
+    ModuleId = try binary_to_integer(RawId) catch _:_ -> -1 end,
+
+    case heuristics_cache:get_results_by_module(ModuleId) of
+        {ok, ResultMap} ->
+            Json = jiffy:encode(#{<<"results">> => ResultMap}),
+            Req2 = cowboy_req:reply(200, Headers, Json, Req),
+            {ok, Req2, State};
+        {error, _} ->
+            Req2 = cowboy_req:reply(404, Headers, <<"Module not found">>, Req),
+            {ok, Req2, State}
+    end;
+
+handle_get(_, _Params, Req, Headers, State) ->
+    Req2 = cowboy_req:reply(400, Headers, <<"Invalid Request">>, Req),
+    {ok, Req2, State}.
 
 %%%===================================================================
 %%% Internal functions

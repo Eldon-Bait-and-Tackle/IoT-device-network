@@ -27,7 +27,6 @@
 	node, {
 		id,
         location,
-		number_connections,
 		neighbors %%% [Module Ids]
 	}
 ).

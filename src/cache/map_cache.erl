@@ -105,11 +105,10 @@ code_change(_OldVsn, State = #map_cache_state{}, _Extra) ->
 %%%===================================================================
 
 
-node_to_map(#node{id = Id, location = {Lat, Long}, number_connections = Conns, neighbors = Neighbors}) ->
+node_to_map(#node{id = Id, location = {Lat, Long}, neighbors = Neighbors}) ->
     #{
         <<"id">> => Id,
         <<"location">> => [Lat, Long], %% Convert tuple {Lat, Long} to List [Lat, Long]
-        <<"connections">> => Conns,
         <<"neighbors">> => Neighbors
     }.
 
