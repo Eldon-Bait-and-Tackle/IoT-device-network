@@ -62,6 +62,7 @@ handle_call(_Request, _From, State = #heuristics_cache_state{}) ->
     {reply, ok, State}.
 handle_cast({new_results, Map}, State = #heuristics_cache_state{}) ->
     update_with_new_map(Map),
+    hsn_logger:send_log(?SERVER, "Heuristc Cache received and updated"),
     {noreply, State};
 handle_cast(_Request, State = #heuristics_cache_state{}) ->
     {noreply, State}.

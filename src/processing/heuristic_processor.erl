@@ -31,6 +31,7 @@ start_link() ->
 
 init([]) ->
     Result = process(),
+    hsn_logger:send_log(?MODULE, "Heuristic processor is done, sending to cache"),
     save_to_cache(Result),
     {stop, normal}.
 

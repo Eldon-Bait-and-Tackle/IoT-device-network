@@ -23,7 +23,6 @@
 %%% API functions
 %%%===================================================================
 
-%%% REMOVE THESE IN THE FUTURE, SHOULD BE DIRECT ACCESS!!!!
 new_map(Map) ->
     gen_server:call(?SERVER, {new_map, Map}).
 
@@ -53,22 +52,22 @@ init([]) ->
 handle_call({get_neighbors, Nid}, _From, State = #map_cache_state{}) ->
     
     case ets:lookup(?TABLE, Nid) of
-        [{Nid, _Num, Neighbors, _Location} = _Result] ->
+        [#node{neighbors = Neighbors}] ->
             {reply, {ok, Neighbors}, State};
         [] ->
             {reply, {error, "map cache failed to find the module of given ID, "}, State}
-        end
+        end;
 
-;
+
 handle_call({get_node, Nid}, _From, State = #map_cache_state{}) ->
 
     case ets:lookup(?TABLE, Nid) of
-        [{Nid, _Num, _Neighbors, _Location} = Result] ->
+        [Result = #node{}] ->
             {reply, {ok, Result}, State};
         [] ->
             {reply, {error, "map cache failed to find the module of given ID, "}, State}
-        end
-;
+        end;
+
 
 handle_call({new_map, Map}, _From,  State = #map_cache_state{}) ->
     case update_map(Map) of
@@ -76,13 +75,13 @@ handle_call({new_map, Map}, _From,  State = #map_cache_state{}) ->
             {reply, ok, State};
         {error_1, MSG} ->
             hsn_logger:send_log(?SERVER, MSG),
-            {reply, error, State};
+            {reply, {error, MSG}, State};
         {error_2, MSG} ->
             hsn_logger:send_log(?SERVER, MSG),
-            {reply, error, State};
+            {reply, {error, MSG}, State};
         _ ->
             hsn_logger:send_log(?SERVER, "Super unkown problem in the map cache"),
-            {reply, error, State}
+            {reply, {error, "UNKOWN"}, State}
     end
 ;
 
