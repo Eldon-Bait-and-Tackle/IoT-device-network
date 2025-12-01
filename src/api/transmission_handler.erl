@@ -36,17 +36,22 @@ handle_transmission(Module_id, Secret, Payload, Req, State) ->
     case module_validation(Module_id, Secret) of
         {ok, true} ->
 
+
             case database_handler:new_transmission(Payload) of
-                ok ->
+
+                {ok, _Time} ->
                     Req2 = cowboy_req:reply(200, #{}, <<"OK">>, Req),
                     {ok, Req2, State};
-                
+
                 {error, Reason} ->
                     hsn_logger:send_log(?MODULE, Reason),
-                    Req2 = cowboy_req:reply(40, #{}, <<"Failure">>, Req),
+                    Req2 = cowboy_req:reply(400, #{}, <<"Failure">>, Req),
+                    {ok, Req2, State};
+                _ ->
+                    hsn_logger:send_log(?MODULE, "Unkown Failure"),
+                    Req2 = cowboy_req:reply(400, #{}, <<"Failure">>, Req),
                     {ok, Req2, State}
-                end;
-        
+            end;
         _ ->
             Req2 = cowboy_req:reply(403, #{}, <<"Forbidden">>, Req),
             {ok, Req2, State}

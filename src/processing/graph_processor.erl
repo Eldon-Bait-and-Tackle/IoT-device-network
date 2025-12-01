@@ -27,11 +27,12 @@ init([]) ->
     case module_cache:get_module_map() of
         {ok, Points} when map_size(Points) > 0 ->
             {ok, GabrielGraph} = gabriel_graph(Points),
-            map_cache:new_map(GabrielGraph),
+            _Output = map_cache:new_map(GabrielGraph),
             hsn_logger:send_log(?MODULE, "New Gabriel Graph Calculated");
         _ ->
             hsn_logger:send_log(?MODULE, "Something is preventing the graph processor... ")
     end,
+
     {stop, normal}.
 
 handle_call(_Request, _From, State) ->

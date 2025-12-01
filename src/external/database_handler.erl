@@ -29,7 +29,7 @@
 %%%===================================================================
 
 new_transmission(Payload) ->
-    gen_server:cast(?SERVER, {new_transmission, Payload}).
+    gen_server:call(?SERVER, {new_transmission, Payload}).
 
 register_module(Chip_id, Hmac) ->
     gen_server:call(?SERVER, {register_module, Chip_id, Hmac}).
@@ -116,7 +116,7 @@ handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_s
                     {reply, {error, Reason}, State}
             end;
         {ok, _COUNT} ->
-            hsn_logger:send_log(?SERVER, "database handler is getting that weird problem where it only returns the count.. :("),
+            hsn_logger:send_log(?SERVER, "database handler is getting that weird problem where it only returns the count.. :( but this still should worked :)"),
             {reply, {error, count_problem}, State};
         {error, Reason} ->
             hsn_logger:send_log(?SERVER, Reason),
@@ -143,24 +143,16 @@ handle_call({get_latest_transmissions}, _From, State = #database_handler_state{c
             {reply, {error, Error}, State}
     end;
 
-handle_call(_Request, _From, State = #database_handler_state{}) ->
-    {reply, ok, State}.
+handle_call({new_transmission, {Mid, T, M, B}}, _From, State = #database_handler_state{connection = Connection}) ->
 
-
-
-handle_cast({new_transmission, Payload}, State = #database_handler_state{connection = Connection}) ->
-
-    {M, T, M, B} = Payload,
-    Module_id = binary_to_integer(M),
+    Module_id = binary_to_integer(Mid),
     Temperature = binary_to_float(T),
     Moisture = binary_to_float(M),
     Battery = binary_to_integer(B),
 
-
-
     Query = "INSERT INTO transmission (module_id, time, temperature, moisture, battery) "
-        "VALUES ($1, NOW(), $2, $3, $4) "
-        "RETURNING transmission_id, module_id, time, temperature, moisture, battery",
+    "VALUES ($1, NOW(), $2, $3, $4) "
+    "RETURNING transmission_id, module_id, time, temperature, moisture, battery",
 
     Params = [Module_id, Temperature, Moisture, Battery],
 
@@ -168,14 +160,21 @@ handle_cast({new_transmission, Payload}, State = #database_handler_state{connect
         {ok, _Count, _Columns, [Row]} ->
             NewRecord = row_to_transmission_record(Row),
             transmission_cache:new_transmission(NewRecord),
-            {noreply, State};
+            {reply, {ok, NewRecord#transmission.time}, State};
         {error, Reason} ->
             hsn_logger:send_log(?SERVER, Reason),
-            {noreply, State};
+            {reply, {error, Reason}, State};
         _Other ->
             hsn_logger:send_log(?SERVER, "epgsql has failed with unknown issues"),
-            {noreply, State}
+            {reply, {error}, State}
     end;
+
+handle_call(_Request, _From, State = #database_handler_state{}) ->
+    {reply, ok, State}.
+
+
+
+
 
 handle_cast(_Request, State = #database_handler_state{}) ->
     {noreply, State}.
