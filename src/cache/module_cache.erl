@@ -94,12 +94,12 @@ handle_call({store_challenge, Challenge, Module_id}, _From, State = #module_cach
             ets:insert(?TABLE, UpdatedModule),
             {reply, {ok, null}, State};
         _ ->
-            {reply, {error, "Module not registered or Chip ID mismatch"}, State}
+            {reply, {error, "Module not registered or secret missmatch mismatch"}, State}
     end;
 
 handle_call({verify_response, Module_id, Response}, _From, State = #module_cache_state{}) ->
     case safe_lookup(Module_id) of
-        [Module = #module{hmac = SecretKey, chip_id = Chip_id, challenge = Challenge}] ->
+        [Module = #module{secret_key = SecretKey, challenge = Challenge}] ->
             case Challenge of
                 undefined ->
                     IsVerified = (SecretKey =:= Response),

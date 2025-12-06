@@ -12,7 +12,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
 
-    new_transmission/1, register_module/2,
+    register_module/1, claim_module/2,
+    new_transmission/1,
     retrieve_module_data/1, load_modules/0,
     get_latest_transmissions/0]).
 
@@ -28,20 +29,29 @@
 %%% API functions
 %%%===================================================================
 
+%%% Modules
+
 new_transmission(Payload) ->
     gen_server:call(?SERVER, {new_transmission, Payload}).
 
-register_module(Chip_id, Hmac) ->
-    gen_server:call(?SERVER, {register_module, Chip_id, Hmac}).
+register_module(Secret) ->
+    gen_server:call(?SERVER, {register_module, Secret}).
+
+claim_module(UserId, Secret) ->
+    gen_server:call(?SERVER, {claim_module, UserId, Secret}).
 
 retrieve_module_data(Module_id) ->
     gen_server:call(?SERVER, {retrieve_module, Module_id}).
 
+load_modules() ->
+    gen_server:call(?SERVER, {load_modules}).
+
+%%% Transmissions
+
 get_latest_transmissions() ->
     gen_server:call(?SERVER, {get_latest_transmissions}).
 
-load_modules() ->
-    gen_server:call(?SERVER, {load_modules}).
+
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -63,9 +73,14 @@ init([]) ->
             {stop, Reason}
     end.
 
+
+%%%===================================================================
+%%% Modules
+%%%===================================================================
+
 handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state{connection = Connection}) ->
 
-    Query = "SELECT module_id, chip_id, hmac, lat, long FROM modules WHERE module_id = $1",
+    Query = "SELECT module_id, secret_key, lat, long, owner_id, is_claimed FROM modules WHERE module_id = $1",
     case epgsql:equery(Connection, Query, [Module_id]) of
         {ok, _Columns, [] } ->
             {reply, {error, "Module Not Found"}, State};
@@ -76,8 +91,8 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
     end;
 
 handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
-    
-    Query = "SELECT module_id, chip_id, hmac, lat, long FROM modules",
+
+    Query = "SELECT module_id, secret_key, lat, long, owner_id, is_claimed FROM modules",
     case epgsql:equery(Connection, Query, []) of
         {ok, _Cols, Rows} ->
             Recs = [row_to_module_record(R) || R <- Rows],
@@ -86,46 +101,46 @@ handle_call({load_modules}, _From, State = #database_handler_state{connection = 
             hsn_logger:send_log(?MODULE, "DB Error loading module cache: ~p ", [Reason]),
             {reply, {error, Reason}, State}
     end;
-    
-    
-    
 
-%%%% FIX
-%%% Consider figuring out how to use SQL ON CONFLICT, this contians a race condition
-handle_call({register_module, Chip_id, Hmac}, _From, State = #database_handler_state{connection = Connection}) ->
 
-    FindQuery = "SELECT module_id, chip_id, hmac, lat, long FROM modules WHERE chip_id = $1",
 
-    case epgsql:equery(Connection, FindQuery, [Chip_id]) of
-        {ok, _Columns, [_Row]} ->
-            hsn_logger:send_log(?SERVER, "This request is attempting to register a module that already exsits...?"),
-            {reply, {error, "This request is attempting to register a module that already exsits...?"}, State};
-        {ok, _Columns, []} ->
-            %%% DEV
-            InsertQuery = "INSERT INTO modules (chip_id, hmac) VALUES ($1, $2) "
-            "RETURNING module_id, chip_id, hmac, lat, long",
-
-            case epgsql:equery(Connection, InsertQuery, [Chip_id, Hmac]) of
-                {ok, _Count, _Columns2, [NewRow]} ->
-                    hsn_logger:send_log(?SERVER, "The new module has been added to the database, loading"),
-                    NewModuleRecord = row_to_module_record(NewRow),
-                    module_cache:load_module(NewModuleRecord),
-                    {reply, {ok, NewModuleRecord#module.module_id}, State};
+handle_call({register_module, Secret}, _From, State = #database_handler_state{connection = C}) ->
+    %% Try to find existing module by Secret
+    Query = "SELECT module_id FROM modules WHERE secret_key = $1",
+    case epgsql:equery(C, Query, [Secret]) of
+        {ok, _, [{ModuleId}]} ->
+            {reply, {ok, ModuleId}, State};
+        {ok, _, []} ->
+            Insert = "INSERT INTO modules (secret_key, is_claimed) VALUES ($1, FALSE) RETURNING module_id, secret_key, lat, long, owner_id, is_claimed",
+            case epgsql:equery(C, Insert, [Secret]) of
+                {ok, _, _, [Row]} ->
+                    Result = row_to_module_record(Row),
+                    module_cache:load_module(row_to_module_record(Result)),
+                    {reply, {ok, Result#module.module_id}, State};
                 {error, Reason} ->
-                    hsn_logger:send_log(?SERVER, Reason),
                     {reply, {error, Reason}, State}
             end;
-        {ok, _COUNT} ->
-            hsn_logger:send_log(?SERVER, "database handler is getting that weird problem where it only returns the count.. :( but this still should worked :)"),
-            {reply, {error, count_problem}, State};
         {error, Reason} ->
-            hsn_logger:send_log(?SERVER, Reason),
             {reply, {error, Reason}, State}
+    end;
+
+handle_call({claim_module, UserId, Secret}, _From, State = #database_handler_state{connection = C}) ->
+    Query = "UPDATE modules SET is_claimed = TRUE, owner_id = $1 "
+    "WHERE secret_key = $2 AND is_claimed = FALSE "
+    "RETURNING module_id",
+    case epgsql:equery(C, Query, [UserId, Secret]) of
+        {ok, _, _, [{ModID}]} ->
+            module_cache:load_modules(),
+            {reply, {ok, ModID}, State};
+        _ ->
+            {reply, {error, "Invalid Secret"}, State}
     end;
 
 
 
-
+%%%===================================================================
+%%% Transmissions
+%%%===================================================================
 
 handle_call({get_latest_transmissions}, _From, State = #database_handler_state{connection = Connection}) ->
 
@@ -169,6 +184,9 @@ handle_call({new_transmission, {Mid, T, M, B}}, _From, State = #database_handler
             {reply, {error}, State}
     end;
 
+
+
+
 handle_call(_Request, _From, State = #database_handler_state{}) ->
     {reply, ok, State}.
 
@@ -207,11 +225,12 @@ row_to_transmission_record({Transmission_id, Module_id, Time, Temperature, Moist
         battery = Battery
     }.
 
-row_to_module_record({Module_id, Chip_id, Hmac, Lat, Long}) ->
+row_to_module_record({Module_id, Secret, Lat, Long, Owner_id, Claimed}) ->
     #module{
         module_id = Module_id,
-        chip_id = Chip_id,
-        hmac = Hmac,
+        secret_key = Secret,
+        owner_id = Owner_id,
+        claimed = Claimed,
         location = {
             case Lat of null -> 0.0; _ -> Lat end,
             case Long of null -> 0.0; _ -> Long end

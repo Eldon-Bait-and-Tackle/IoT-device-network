@@ -33,11 +33,25 @@ init(Req, State) ->
         <<"GET">> ->
             Params = maps:from_list(cowboy_req:parse_qs(Req)),
             handle_get(maps:get(<<"request">>, Params, undefined), Params, Req, Headers, State);
+        <<"POST">> ->
+            Params = maps:from_list(cowboy_req:parse_qs(Req)),
+            RequestType = maps:get(<<"request">>, Params, undefined),
+
+            {ok, BodyRaw, Req2} = cowboy_req:read_body(Req),
+            Body = decode_payload(BodyRaw),
+
+            handle_post(RequestType, Body, Req2, Headers, State);
+
 
         _ ->
             Req2 = cowboy_req:reply(405, Headers, <<"Method Not Allowed">>, Req),
             {ok, Req2, State}
     end.
+
+
+%%%===================================================================
+%%% Get
+%%%===================================================================
 
 handle_get(<<"get_heuristics">>, _Params, Req, Headers, State) ->
     Results = heuristics_cache:get_all_results(),
@@ -68,6 +82,26 @@ handle_get(<<"get_module">>, Params, Req, Headers, State) ->
 handle_get(_, _Params, Req, Headers, State) ->
     Req2 = cowboy_req:reply(400, Headers, <<"Invalid Request">>, Req),
     {ok, Req2, State}.
+
+
+%%%===================================================================
+%%% Post
+%%%===================================================================
+
+handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
+    Secret = maps:get(<<"secret">>, Body),
+    UserId = <<"user_from_token">>, %% Extract from Auth Token
+
+    case database_handler:claim_module(UserId, Secret) of
+        {ok, ModId} ->
+            Req2 = cowboy_req:reply(200, Headers, jiffy:encode(#{<<"module_id">> => ModId}), Req),
+            {ok, Req2, State};
+        {error, _} ->
+            Req2 = cowboy_req:reply(400, Headers, <<"Claim Failed">>, Req),
+            {ok, Req2, State}
+    end.
+
+
 
 %%%===================================================================
 %%% Internal functions

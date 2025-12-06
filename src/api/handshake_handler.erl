@@ -24,12 +24,12 @@ init(Req, State) ->
     case {Method, decode_payload(ReqBody)} of
         {<<"POST">>, #{<<"handshake">> := <<"response">>, <<"module_id">> := Mid, <<"response">> := Response}} ->
             handle_response(Mid, Response, Req2, State);
-        
+
         {<<"POST">>, #{<<"handshake">> := <<"challenge">>, <<"module_id">> := Mid}} ->
             handle_challenge(Mid,Req2, State);
-        
-        {<<"POST">>, #{<<"handshake">> := <<"register">>, <<"chip_id">> := Cid, <<"hmac">> := Hmac}} ->
-            handle_registration(Cid, Hmac, Req, State);
+
+        {<<"POST">>, #{<<"handshake">> := <<"register">>, <<"secret">> := Secret}} ->
+            handle_registration(Secret, Req2, State);
 
         _ ->
             Req3 = cowboy_req:reply(400, #{}, <<"Invalid Request Pattern">>, Req2),
@@ -46,15 +46,14 @@ decode_payload(Body) ->
 %%%===================================================================
 
 
-handle_registration(Chip_id, Hmac, Req, State) ->
-    case database_handler:register_module(Chip_id, Hmac) of
+handle_registration(Secret, Req, State) ->
+    case database_handler:register_module(Secret) of
         {ok, Module_id} ->
             Json = jiffy:encode(#{<<"module_id">> => Module_id, <<"status">> => <<"registered">>}),
             Req2 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req),
             {ok, Req2, State};
-        {error, _Reason} ->
-            hsn_logger:send_log(?SERVER, "Module Registration has failed"),
-            Req2 = cowboy_req:reply(500, #{}, <<"Registration Failed">>, Req),
+        {error, _} ->
+            Req2 = cowboy_req:reply(500, #{}, <<"Failed">>, Req),
             {ok, Req2, State}
     end.
 
