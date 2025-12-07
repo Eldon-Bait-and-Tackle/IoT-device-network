@@ -179,7 +179,7 @@ handle_call({new_transmission, {Mid, T, M, B}}, _From, State = #database_handler
             {reply, {error, Reason}, State};
         _Other ->
             hsn_logger:send_log(?SERVER, "epgsql has failed with unknown issues"),
-            {reply, {error}, State}
+            {reply, {error, unknown}, State}
     end;
 
 
@@ -228,7 +228,7 @@ row_to_module_record({Module_id, Secret, Lat, Long, Owner_id, Claimed}) ->
         module_id = Module_id,
         secret_key = Secret,
         owner_id = Owner_id,
-        claimed = Claimed,
+        is_claimed = Claimed,
         location = {
             case Lat of null -> 0.0; _ -> Lat end,
             case Long of null -> 0.0; _ -> Long end

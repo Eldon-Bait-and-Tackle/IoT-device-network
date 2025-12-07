@@ -58,7 +58,7 @@ get_all_ids() ->
     gen_server:call(?SERVER, {get_all_ids}).
 
 load_modules() ->
-    gen_server:cast(?SERVER, load_modules).
+    gen_server:cast(?SERVER, {load_modules}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -161,7 +161,7 @@ handle_call(_Request, _From, State = #module_cache_state{}) ->
     
     
     
-handle_cast(load_modules, State = #module_cache_state{}) ->
+handle_cast({load_modules}, State = #module_cache_state{}) ->
     case database_handler:load_modules() of
         {ok, Modules} ->
             ets:insert(?TABLE, Modules),

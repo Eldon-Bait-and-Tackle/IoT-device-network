@@ -89,16 +89,23 @@ handle_get(_, _Params, Req, Headers, State) ->
 %%%===================================================================
 
 handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
-    Secret = maps:get(<<"secret">>, Body),
-    UserId = <<"user_from_token">>, %% Extract from Auth Token
-
-    case database_handler:claim_module(UserId, Secret) of
-        {ok, ModId} ->
-            Req2 = cowboy_req:reply(200, Headers, jiffy:encode(#{<<"module_id">> => ModId}), Req),
+    Secret = maps:get(<<"secret">>, Body, undefined),
+    
+    case Secret of
+        undefined ->
+            Req2 = cowboy_req:reply(400, Headers, <<"Failed">>, Req),
             {ok, Req2, State};
-        {error, _} ->
-            Req2 = cowboy_req:reply(400, Headers, <<"Claim Failed">>, Req),
-            {ok, Req2, State}
+        _ ->
+            UserId = <<"user_from_token">>,
+
+            case database_handler:claim_module(UserId, Secret) of
+                {ok, ModId} ->
+                    Req2 = cowboy_req:reply(200, Headers, jiffy:encode(#{<<"module_id">> => ModId}), Req),
+                    {ok, Req2, State};
+                {error, _} ->
+                    Req2 = cowboy_req:reply(400, Headers, <<"Claim Failed">>, Req),
+                    {ok, Req2, State}
+            end
     end.
 
 

@@ -34,7 +34,7 @@ get_general_last_reading(Module_id) ->
 get_recent_reading(Id) ->
     case ets:lookup(?TABLE, Id) of
          [] ->
-             {err, not_found};
+             {error, not_found};
          [{Id, [LatestRecord | _]}] ->
              {ok, LatestRecord}
      end.
@@ -51,7 +51,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, protected, named_table, {keypos, 2}]),
+    ets:new(?TABLE, [set, protected, named_table, {keypos, 1}]),
     load_latest_from_db(),
     {ok, #transmission_cache_state{}}.
 
@@ -70,7 +70,7 @@ handle_call({get_general_last_reading, _Module_id}, _From, State = #transmission
             ?TABLE
         ),
         %% might need to include list:reverse here if this causes problems later. It is simply in backwards order which shouln't releasitcally matter.
-    {reply, Result, State};
+    {reply, {ok, Result}, State};
 handle_call({get_last_reading, Id}, _From, State = #transmission_cache_state{}) ->
     Result = case ets:lookup(?TABLE, Id) of
                  [] ->
