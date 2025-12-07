@@ -11,8 +11,10 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
+    
     retrieve_location/1, load_module/1, get_module_map/0, get_all_ids/0,
-    store_challenge/2, verify_response/2, get_module_data/1,
+    store_challenge/2, get_module_data/1,
+    verify_response/2, verify_transmission/1,
     load_modules/0]).
 
 -define(SERVER, ?MODULE).
@@ -106,7 +108,8 @@ handle_call({verify_response, Module_id, Response}, _From, State = #module_cache
                     {reply, {ok, IsVerified}, State};
             _ ->
                 ExpectedMac = crypto:mac(hmac, sha256, SecretKey, Challenge), %%% This might be broken.. from :hmac/3 to :mac/4...
-                IsVerified = (SecretKey =:= Response),
+                IsVerified = (ExpectedMac =:= Response),
+                
                 UpdatedModule = Module#module{challenge = undefined},
                 ets:insert(?TABLE, UpdatedModule),
                 {reply, {ok, IsVerified}, State}
@@ -114,6 +117,20 @@ handle_call({verify_response, Module_id, Response}, _From, State = #module_cache
         [] ->
             {reply, {ok, false}, State}
     end;
+
+
+
+handle_call({verify_transmission, ModuleId, DataBin, ProvidedSig}, _From, State) ->
+    VerificationResult = case safe_lookup(ModuleId) of
+         [#module{secret_key = Secret}] ->
+             ExpectedSig = crypto:mac(hmac, sha256, Secret, DataBin),
+             ExpectedSig =:= ProvidedSig;
+         [] ->
+             false
+     end,
+    {reply, VerificationResult, State};
+
+
 
 handle_call({get_module_map}, _From, State = #module_cache_state{}) ->
     Map = ets:foldl(
