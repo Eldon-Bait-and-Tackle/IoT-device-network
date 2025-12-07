@@ -100,14 +100,17 @@ handle_cast({new_transmission, Transmission = #transmission{module_id = Module_i
         [{Module_id, Old_transmissions}] ->
             %% modules is loaded and has transmissions
             ets:insert(?TABLE, {Module_id, [Transmission | Old_transmissions]}),
-            {noreply, ok, State};
+            {noreply, State};
         [{Module_id, []}] ->
             ets:insert(?TABLE, {Module_id, [Transmission]}),
-            {noreply, ok, State};
+            {noreply, State};
         _ ->
-            %%% the module is not loaded into the cache, consider adding checking for if the modules is newly registered but not added later. 
-            hsn_logger:send_log(?MODULE, "Module Tranmission has been verified, but no such module exists within the Transmission Cache, tranmsision is thrown out"),
-            %%% Also this drops data, I need to update this in the future and decide how to handle this, FIX
+            %%% the module is not loaded into the cache, insert as new entry
+            
+            %%% FIX LATER, VALIDATE THAT THIS IS A REGISTERED MODULE BEFORE ALLOWING INSERTION, also you should really add
+            %%% this from the module cache instead.
+            ets:insert(?TABLE, {Module_id, [Transmission]}),
+            hsn_logger:send_log(?MODULE, "Module Transmission cached (first entry): ~p", [Module_id]),
             {noreply, State}
         
         end

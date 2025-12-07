@@ -115,7 +115,7 @@ handle_call({register_module, Secret}, _From, State = #database_handler_state{co
             case epgsql:equery(C, Insert, [Secret]) of
                 {ok, _, _, [Row]} ->
                     Result = row_to_module_record(Row),
-                    module_cache:load_module(row_to_module_record(Result)),
+                    module_cache:load_module(Result),
                     {reply, {ok, Result#module.module_id}, State};
                 {error, Reason} ->
                     {reply, {error, Reason}, State}
@@ -125,9 +125,7 @@ handle_call({register_module, Secret}, _From, State = #database_handler_state{co
     end;
 
 handle_call({claim_module, UserId, Secret}, _From, State = #database_handler_state{connection = C}) ->
-    Query = "UPDATE modules SET is_claimed = TRUE, owner_id = $1 "
-    "WHERE secret_key = $2 AND is_claimed = FALSE "
-    "RETURNING module_id",
+    Query = "UPDATE modules SET is_claimed = TRUE, owner_id = $1 WHERE secret_key = $2 AND is_claimed = FALSE RETURNING module_id",
     case epgsql:equery(C, Query, [UserId, Secret]) of
         {ok, _, _, [{ModID}]} ->
             module_cache:load_modules(),
@@ -152,7 +150,7 @@ handle_call({get_latest_transmissions}, _From, State = #database_handler_state{c
     case epgsql:equery(Connection, Query) of
         {ok, _Cols, Rows} ->
             Records = [row_to_transmission_record(R) || R <- Rows],
-            {reply, Records, State};
+            {reply, {ok, Records}, State};
         Error ->
             hsn_logger:send_log(?MODULE, "DB Error loading cache: ~p", [Error]),
             {reply, {error, Error}, State}

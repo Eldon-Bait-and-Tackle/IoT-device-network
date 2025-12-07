@@ -16,6 +16,8 @@
 -define(MAX_DIST, 5).
 -include("records.hrl").
 
+-record(graph_processor_state, {}).
+
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================

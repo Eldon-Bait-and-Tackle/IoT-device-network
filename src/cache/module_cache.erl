@@ -14,7 +14,7 @@
     
     retrieve_location/1, load_module/1, get_module_map/0, get_all_ids/0,
     store_challenge/2, get_module_data/1,
-    verify_response/2, verify_transmission/1,
+    verify_response/2, verify_transmission/3,
     load_modules/0]).
 
 -define(SERVER, ?MODULE).
@@ -34,7 +34,7 @@
 
 %%% a general release of data is required to have a user authentication for any values beyond processed anonomised user statistics :)
 get_module_data(User_Auth) ->
-    gen_server:call({get_module_data, User_Auth}).
+    gen_server:call(?SERVER, {get_module_data, User_Auth}).
 
 retrieve_location(Module_id) ->
     gen_server:call(?SERVER, {retrieve_location, Module_id}).
@@ -44,6 +44,9 @@ store_challenge(Challenge, Module_id) ->
 
 verify_response(Module_id, Response) ->
     gen_server:call(?SERVER, {verify_response, Module_id, Response}).
+
+verify_transmission(ModuleId, DataBin, ProvidedSig) ->
+    gen_server:call(?SERVER, {verify_transmission, ModuleId, DataBin, ProvidedSig}).
 
 load_module(Module = #module{}) ->
     gen_server:cast(?SERVER, {load_module, Module}).
@@ -65,7 +68,8 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, private, named_table, {keypos, 2}]),
+    %% Use module_id (first record field) as the ETS key
+    ets:new(?TABLE, [set, private, named_table, {keypos, 1}]),
     load_modules(),
     {ok, #module_cache_state{}}.
 
@@ -190,13 +194,21 @@ code_change(_OldVsn, State = #module_cache_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+normalize_module_id(Id) when is_integer(Id) -> 
+    {ok, Id};
+normalize_module_id(Id) when is_binary(Id) ->
+    try
+        {ok, binary_to_integer(Id)}
+    catch _:_ ->
+        {error, invalid_module_id}
+    end;
+normalize_module_id(_) ->
+    {error, invalid_module_id}.
 
 safe_lookup(Id) ->
-    case ets:lookup(?TABLE, Id) of
-        [] when is_integer(Id) ->
-            ets:lookup(?TABLE, integer_to_binary(Id));
-        [] when is_binary(Id) ->
-            try ets:lookup(?TABLE, binary_to_integer(Id))
-            catch _:_ -> [] end;
-        Result -> Result
+    case normalize_module_id(Id) of
+        {ok, NormalizedId} ->
+            ets:lookup(?TABLE, NormalizedId);
+        {error, _} ->
+            []
     end.

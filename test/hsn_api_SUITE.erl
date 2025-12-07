@@ -30,7 +30,7 @@ end_per_testcase(_TestCase, Config) ->
     Config.
 
 test_handshake_challenge(_Config) ->
-    Url = "http://localhost:8081/handshake",
+    Url = "http://localhost:8082/handshake",
 
     ReqBody = jiffy:encode(#{
         <<"module_id">> => <<"TEST_MID_001">>,
