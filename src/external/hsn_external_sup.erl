@@ -27,5 +27,10 @@ init([]) ->
         start => {database_handler, start_link, []},
         restart => permanent,
         type => worker},
+    
+    User_Handler = #{id => user_handler,
+        start => {user_handler, start_link, []},
+        restart => permanent,
+        type => worker},
 
-    {ok, {SupFlags, [DbWorker]}}.
+    {ok, {SupFlags, [DbWorker, User_Handler]}}.

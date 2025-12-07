@@ -77,10 +77,21 @@ handle_response(Module_id, Response, Req, State) ->
     case module_cache:verify_response(Module_id, Response) of
         {ok, true} ->
             AuthToken = base64:encode(crypto:strong_rand_bytes(32)),
-            Json = jiffy:encode(#{<<"auth_token">> => AuthToken}),
+
+            %% In a real implementation, you might want to store this token
+            %% persistently or use user_handler to cache it
+            Json = jiffy:encode(#{
+                <<"auth_token">> => AuthToken,
+                <<"module_id">> => Module_id,
+                <<"token_type">> => <<"device">>
+            }),
             Req2 = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req),
             {ok, Req2, State};
         _ ->
-            Req2 = cowboy_req:reply(401, #{}, <<"Unauthorized">>, Req),
+            ErrorJson = jiffy:encode(#{
+                <<"error">> => <<"unauthorized">>,
+                <<"message">> => <<"Invalid challenge response">>
+            }),
+            Req2 = cowboy_req:reply(401, #{<<"content-type">> => <<"application/json">>}, ErrorJson, Req),
             {ok, Req2, State}
     end.

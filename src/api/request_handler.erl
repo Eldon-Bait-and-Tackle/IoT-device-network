@@ -54,28 +54,40 @@ init(Req, State) ->
 %%%===================================================================
 
 handle_get(<<"get_heuristics">>, _Params, Req, Headers, State) ->
+    %% Public endpoint - no auth required
     Results = heuristics_cache:get_all_results(),
     Json = jiffy:encode(#{<<"results">> => Results}),
     Req2 = cowboy_req:reply(200, Headers, Json, Req),
     {ok, Req2, State};
 
 handle_get(<<"get_map">>, _Params, Req, Headers, State) ->
+    %% Public endpoint - no auth required
     Results = map_cache:get_map(),
     Json = jiffy:encode(#{<<"results">> => Results}),
     Req2 = cowboy_req:reply(200, Headers, Json, Req),
     {ok, Req2, State};
 
 handle_get(<<"get_module">>, Params, Req, Headers, State) ->
-    RawId = maps:get(<<"module_id">>, Params, <<"0">>),
-    ModuleId = try binary_to_integer(RawId) catch _:_ -> -1 end,
-
-    case heuristics_cache:get_results_by_module(ModuleId) of
-        {ok, ResultMap} ->
-            Json = jiffy:encode(#{<<"results">> => ResultMap}),
-            Req2 = cowboy_req:reply(200, Headers, Json, Req),
-            {ok, Req2, State};
-        {error, _} ->
-            Req2 = cowboy_req:reply(404, Headers, <<"Module not found">>, Req),
+    %% Protected endpoint - requires valid auth token
+    AuthToken = maps:get(<<"auth_token">>, Params, undefined),
+    
+    case validate_auth_token(AuthToken) of
+        {ok, _UserInfo} ->
+            RawId = maps:get(<<"module_id">>, Params, <<"0">>),
+            ModuleId = try binary_to_integer(RawId) catch _:_ -> -1 end,
+            
+            case heuristics_cache:get_results_by_module(ModuleId) of
+                {ok, ResultMap} ->
+                    Json = jiffy:encode(#{<<"results">> => ResultMap}),
+                    Req2 = cowboy_req:reply(200, Headers, Json, Req),
+                    {ok, Req2, State};
+                {error, _} ->
+                    Req2 = cowboy_req:reply(404, Headers, <<"Module not found">>, Req),
+                    {ok, Req2, State}
+            end;
+        {error, _Reason} ->
+            ErrorJson = jiffy:encode(#{<<"error">> => <<"Unauthorized">>, <<"message">> => <<"Invalid or missing auth token">>}),
+            Req2 = cowboy_req:reply(401, Headers, ErrorJson, Req),
             {ok, Req2, State}
     end;
 
@@ -89,24 +101,49 @@ handle_get(_, _Params, Req, Headers, State) ->
 %%%===================================================================
 
 handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
+    %% Protected endpoint - requires valid auth token
+    AuthToken = maps:get(<<"auth_token">>, Body, undefined),
     Secret = maps:get(<<"secret">>, Body, undefined),
     
     case Secret of
         undefined ->
-            Req2 = cowboy_req:reply(400, Headers, <<"Failed">>, Req),
+            ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing secret parameter">>}),
+            Req2 = cowboy_req:reply(400, Headers, ErrorJson, Req),
             {ok, Req2, State};
         _ ->
-            UserId = <<"user_from_token">>,
-
-            case database_handler:claim_module(UserId, Secret) of
-                {ok, ModId} ->
-                    Req2 = cowboy_req:reply(200, Headers, jiffy:encode(#{<<"module_id">> => ModId}), Req),
-                    {ok, Req2, State};
-                {error, _} ->
-                    Req2 = cowboy_req:reply(400, Headers, <<"Claim Failed">>, Req),
+            case validate_auth_token(AuthToken) of
+                {ok, UserInfo} ->
+                    UserId = maps:get(user_id, UserInfo, undefined),
+                    case database_handler:claim_module(UserId, Secret) of
+                        {ok, ModId} ->
+                            SuccessJson = jiffy:encode(#{
+                                <<"module_id">> => ModId,
+                                <<"status">> => <<"claimed">>
+                            }),
+                            Req2 = cowboy_req:reply(200, Headers, SuccessJson, Req),
+                            {ok, Req2, State};
+                        {error, Reason} ->
+                            ErrorJson = jiffy:encode(#{
+                                <<"error">> => <<"Claim failed">>,
+                                <<"message">> => atom_to_binary(Reason, utf8)
+                            }),
+                            Req2 = cowboy_req:reply(400, Headers, ErrorJson, Req),
+                            {ok, Req2, State}
+                    end;
+                {error, _Reason} ->
+                    ErrorJson = jiffy:encode(#{
+                        <<"error">> => <<"Unauthorized">>,
+                        <<"message">> => <<"Invalid or missing auth token">>
+                    }),
+                    Req2 = cowboy_req:reply(401, Headers, ErrorJson, Req),
                     {ok, Req2, State}
             end
-    end.
+    end;
+
+handle_post(_, _, Req, Headers, State) ->
+    ErrorJson = jiffy:encode(#{<<"error">> => <<"Invalid request">>}),
+    Req2 = cowboy_req:reply(400, Headers, ErrorJson, Req),
+    {ok, Req2, State}.
 
 
 
@@ -114,6 +151,13 @@ handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
 %%% Internal functions
 %%%===================================================================
 
-
 decode_payload(Body) ->
     try jiffy:decode(Body, [return_maps]) catch _:_ -> #{} end.
+
+%% Validates an auth token using the user_handler module
+%% Returns {ok, UserInfo} or {error, Reason}
+validate_auth_token(undefined) ->
+    {error, missing_token};
+validate_auth_token(Token) ->
+    user_handler:validate_token(Token).
+
