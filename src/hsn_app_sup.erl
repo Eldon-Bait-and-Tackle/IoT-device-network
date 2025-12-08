@@ -20,8 +20,8 @@ start_link() ->
 
 init([]) ->
     SupFlags = #{strategy => one_for_all, % If one distinct subsystem fails, restart everything to ensure consistency
-        intensity => 0,
-        period => 1},
+        intensity => 2,
+        period => 10},
 
     DbSup = #{id => hsn_external_sup,
         start => {hsn_external_sup, start_link, []},

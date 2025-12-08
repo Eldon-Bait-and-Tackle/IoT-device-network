@@ -55,13 +55,14 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, public, named_table, {keypos, 2}]),
+    ets:new(?TABLE, [set, public, named_table, {keypos, 1}]),
     {ok, #heuristics_cache_state{}}.
 
 handle_call(_Request, _From, State = #heuristics_cache_state{}) ->
     {reply, ok, State}.
 handle_cast({new_results, Map}, State = #heuristics_cache_state{}) ->
     update_with_new_map(Map),
+    hsn_logger:send_log(?SERVER, "Heuristic Cache received and updated"),
     {noreply, State};
 handle_cast(_Request, State = #heuristics_cache_state{}) ->
     {noreply, State}.
@@ -86,10 +87,18 @@ to_map({Module_id, Self_temp, Avg_temp, Within_range, Deviation}) ->
         <<"avg_neighbor_temp">> => Avg_temp,
         <<"within_range">> => Within_range,
         <<"deviation">> => Deviation
+    };
+to_map({Module_id, Self_temp, no_neighbors, Within_range}) ->
+    #{
+        <<"module_id">> => Module_id,
+        <<"self_temp">> => Self_temp,
+        <<"avg_neighbor_temp">> => <<"no_neighbors">>,
+        <<"within_range">> => Within_range,
+        <<"deviation">> => 0.0
     }.
 
 update_with_new_map([]) ->
     ok;
-update_with_new_map([{Mid, Self_temp, Avg_neighbors, Within_range, Deviation} | Remaining]) ->
-    ets:insert(?TABLE, {Mid, Self_temp, Avg_neighbors, Within_range, Deviation}),
+update_with_new_map([Head | Remaining]) ->
+    ets:insert(?TABLE, Head),
     update_with_new_map(Remaining).

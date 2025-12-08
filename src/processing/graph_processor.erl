@@ -8,29 +8,38 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1]).
+-export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(MAX_DIST, 5).
 -include("records.hrl").
 
-%% Define a local record for neighbors if not in records.hrl
--record(graph_processor_state, {}).
+%-record(graph_processor_state, {}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
-start_link(Points) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Points], []).
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-init([Points]) ->
-    {ok, GabrielGraph} = gabriel_graph(Points),
-    map_cache:new_map(GabrielGraph),
-    hsn_logger:send_log(?MODULE, "Gabriel Graph Calculated"),
-    
-    {ok, #graph_processor_state{}}.
+init([]) ->
+
+    case module_cache:get_module_map() of
+        {ok, Points} when map_size(Points) > 0 ->
+            {ok, GabrielGraph} = gabriel_graph(Points),
+
+            MapList = maps:values(GabrielGraph),
+
+            map_cache:new_map(MapList),
+            hsn_logger:send_log(?MODULE, "New Gabriel Graph Calculated");
+        _ ->
+            hsn_logger:send_log(?MODULE, "Something is preventing the graph processor... ")
+    end,
+
+    {stop, normal}.
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -53,11 +62,10 @@ code_change(_OldVsn, State, _Extra) ->
 
 gabriel_graph(Map) ->
     Keys = maps:keys(Map),
-    Graph = gabriel_graph(Map, Keys, Map),
-    {ok, Graph}.
+    gabriel_graph(Map, Keys, #{}).
 
 gabriel_graph(_Map, [], AccMap) ->
-    AccMap;
+    {ok, AccMap};
 
 gabriel_graph(Map, [CurrentID | RemainingKeys], AccMap) ->
     CurrentNode = maps:get(CurrentID, Map),
@@ -73,30 +81,36 @@ gabriel_graph(Map, [CurrentID | RemainingKeys], AccMap) ->
 
 find_gabriel_neighbors(CurrentNode, CandidateIDs, Map) ->
     lists:filtermap(fun(OtherID) ->
+
         OtherNode = maps:get(OtherID, Map),
+
         check_gabriel_condition(CurrentNode, OtherNode, Map)
-                    end, CandidateIDs).
+                    end,
+        CandidateIDs).
 
 %% Check if OtherNode is a Gabriel neighbor of CurrentNode
 check_gabriel_condition(CurrentNode, OtherNode, Map) ->
-    #node{id = OtherID, location = {L21, L22}} = OtherNode,
+    #node{location = {L21, L22}} = OtherNode,
     #node{location = {L11, L12}} = CurrentNode,
 
-    Dist = math:sqrt(math:pow(L21 - L11, 2) + math:pow(L22 - L12, 2)),
-    Radius = Dist / 2,
+    case {is_number(L11), is_number(L12), is_number(L21), is_number(L22)} of
+        {true, true, true, true} ->
+            Dist = math:sqrt(math:pow(L21 - L11, 2) + math:pow(L22 - L12, 2)),
+            Radius = Dist / 2,
 
-    MidX = (L11 + L21) / 2,
-    MidY = (L12 + L22) / 2,
+            MidX = (L11 + L21) / 2,
+            MidY = (L12 + L22) / 2,
 
-    AllNodes = maps:values(Map),
-    IsBlocked = lists:any(fun(TestNode) ->
-        is_in_circle(TestNode, MidX, MidY, Radius)
-                          end, AllNodes -- [CurrentNode, OtherNode]),
+            AllNodes = maps:values(Map),
+            IsBlocked = lists:any(fun(TestNode) ->
+                is_in_circle(TestNode, MidX, MidY, Radius)
+                                  end, AllNodes -- [CurrentNode, OtherNode]),
 
-    case IsBlocked of
-        true -> false;
-        false -> {true, OtherID}
+            not IsBlocked;
+        _ ->
+            false
     end.
+
 
 is_in_circle(#node{location = {TX, TY}}, CX, CY, Radius) ->
     Dist = math:sqrt(math:pow(TX - CX, 2) + math:pow(TY - CY, 2)),

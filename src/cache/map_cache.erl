@@ -23,9 +23,8 @@
 %%% API functions
 %%%===================================================================
 
-%%% REMOVE THESE IN THE FUTURE, SHOULD BE DIRECT ACCESS!!!!
 new_map(Map) ->
-    gen_server:cast(?SERVER, {new_map, Map}).
+    gen_server:call(?SERVER, {new_map, Map}).
 
 get_node(Nid) ->
     gen_server:call(?SERVER, {get_node, Nid}).
@@ -53,40 +52,42 @@ init([]) ->
 handle_call({get_neighbors, Nid}, _From, State = #map_cache_state{}) ->
     
     case ets:lookup(?TABLE, Nid) of
-        [{Nid, _Num, Neighbors, _Location} = _Result] ->
+        [#node{neighbors = Neighbors}] ->
             {reply, {ok, Neighbors}, State};
         [] ->
             {reply, {error, "map cache failed to find the module of given ID, "}, State}
-        end
+        end;
 
-;
+
 handle_call({get_node, Nid}, _From, State = #map_cache_state{}) ->
 
     case ets:lookup(?TABLE, Nid) of
-        [{Nid, _Num, _Neighbors, _Location} = Result] ->
+        [Result = #node{}] ->
             {reply, {ok, Result}, State};
         [] ->
             {reply, {error, "map cache failed to find the module of given ID, "}, State}
-        end
+        end;
+
+
+handle_call({new_map, Map}, _From,  State = #map_cache_state{}) ->
+    case update_map(Map) of
+        {ok, complete} ->
+            {reply, ok, State};
+        {error_1, MSG} ->
+            hsn_logger:send_log(?SERVER, MSG),
+            {reply, {error, MSG}, State};
+        {error_2, MSG} ->
+            hsn_logger:send_log(?SERVER, MSG),
+            {reply, {error, MSG}, State};
+        _ ->
+            hsn_logger:send_log(?SERVER, "Super unkown problem in the map cache"),
+            {reply, {error, "UNKOWN"}, State}
+    end
 ;
+
 handle_call(_Request, _From, State = #map_cache_state{}) ->
     {reply, ok, State}.
 
-
-handle_cast({new_map, Map}, State = #map_cache_state{}) ->
-    case update_map(Map) of
-        {ok, _} ->
-            {noreply, State};
-        {error_1, MSG} ->
-            hsn_logger:send_log(?SERVER, MSG),
-            {noreply, State};
-        {error_2, MSG} ->
-            hsn_logger:send_log(?SERVER, MSG),
-            {noreply, State};
-        _ ->
-            hsn_logger:send_log(?SERVER, "Super unkown problem in the map cache")
-        end
-;
 handle_cast(_Request, State = #map_cache_state{}) ->
     {noreply, State}.
 
@@ -104,11 +105,10 @@ code_change(_OldVsn, State = #map_cache_state{}, _Extra) ->
 %%%===================================================================
 
 
-node_to_map(#node{id = Id, location = {Lat, Long}, number_connections = Conns, neighbors = Neighbors}) ->
+node_to_map(#node{id = Id, location = {Lat, Long}, neighbors = Neighbors}) ->
     #{
         <<"id">> => Id,
         <<"location">> => [Lat, Long], %% Convert tuple {Lat, Long} to List [Lat, Long]
-        <<"connections">> => Conns,
         <<"neighbors">> => Neighbors
     }.
 

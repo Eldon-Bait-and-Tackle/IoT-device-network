@@ -31,8 +31,13 @@ new_transmission(Transmission) ->
 get_general_last_reading(Module_id) ->
     gen_server:call(?SERVER, {get_general_last_reading, Module_id}).
 
-get_recent_reading(Module_Id) ->
-    gen_server:call(?SERVER, {get_recent_reading, Module_Id}).
+get_recent_reading(Id) ->
+    case ets:lookup(?TABLE, Id) of
+         [] ->
+             {error, not_found};
+         [{Id, [LatestRecord | _]}] ->
+             {ok, LatestRecord}
+     end.
 
 
 load_latest_from_db() -> gen_server:cast(?SERVER, load_latest_from_db).
@@ -46,7 +51,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, protected, named_table, {keypos, 2}]),
+    ets:new(?TABLE, [set, protected, named_table, {keypos, 1}]),
     load_latest_from_db(),
     {ok, #transmission_cache_state{}}.
 
@@ -65,7 +70,7 @@ handle_call({get_general_last_reading, _Module_id}, _From, State = #transmission
             ?TABLE
         ),
         %% might need to include list:reverse here if this causes problems later. It is simply in backwards order which shouln't releasitcally matter.
-    {reply, Result, State};
+    {reply, {ok, Result}, State};
 handle_call({get_last_reading, Id}, _From, State = #transmission_cache_state{}) ->
     Result = case ets:lookup(?TABLE, Id) of
                  [] ->
@@ -95,14 +100,17 @@ handle_cast({new_transmission, Transmission = #transmission{module_id = Module_i
         [{Module_id, Old_transmissions}] ->
             %% modules is loaded and has transmissions
             ets:insert(?TABLE, {Module_id, [Transmission | Old_transmissions]}),
-            {noreply, ok, State};
+            {noreply, State};
         [{Module_id, []}] ->
             ets:insert(?TABLE, {Module_id, [Transmission]}),
-            {noreply, ok, State};
+            {noreply, State};
         _ ->
-            %%% the module is not loaded into the cache, consider adding checking for if the modules is newly registered but not added later. 
-            hsn_logger:send_log(?MODULE, "Module Tranmission has been verified, but no such module exists within the Transmission Cache, tranmsision is thrown out"),
-            %%% Also this drops data, I need to update this in the future and decide how to handle this, FIX
+            %%% the module is not loaded into the cache, insert as new entry
+            
+            %%% FIX LATER, VALIDATE THAT THIS IS A REGISTERED MODULE BEFORE ALLOWING INSERTION, also you should really add
+            %%% this from the module cache instead.
+            ets:insert(?TABLE, {Module_id, [Transmission]}),
+            hsn_logger:send_log(?MODULE, "Module Transmission cached (first entry): ~p", [Module_id]),
             {noreply, State}
         
         end

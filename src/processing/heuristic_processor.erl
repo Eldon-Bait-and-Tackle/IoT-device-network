@@ -29,11 +29,11 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-init([_ManagerPid]) ->
+init([]) ->
     Result = process(),
+    hsn_logger:send_log(?MODULE, "Heuristic processor is done, sending to cache"),
     save_to_cache(Result),
-    %%% gen_server:cast(ManagerPid, {process_return, Result}),
-    {stop, normal, #heuristic_processor_state{}}.
+    {stop, normal}.
 
 handle_call(_Request, _From, State = #heuristic_processor_state{}) ->
     {reply, ok, State}.
@@ -58,7 +58,7 @@ save_to_cache(Result_map) ->
     heuristics_cache:new_results(Result_map).
 
 process() ->
-    ModuleIDs = module_cache:get_all_ids(),
+    {ok, ModuleIDs} = module_cache:get_all_ids(),
     lists:map(fun(ID) -> check_module_temp(ID) end, ModuleIDs).
 
 check_module_temp(ModuleID) ->
@@ -92,6 +92,6 @@ get_module_temp(ModuleID) ->
     case transmission_cache:get_recent_reading(ModuleID) of
         {ok, #transmission{temperature = Temp}} ->
             Temp;
-        {error, _} ->
+        _ ->
             ?HEURISTIC_TEMP
     end.

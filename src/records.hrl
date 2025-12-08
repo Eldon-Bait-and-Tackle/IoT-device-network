@@ -17,9 +17,12 @@
 -record(    
     module, {
         module_id,
-        chip_id,
-        hmac,
+        secret_key,
         location, %%%% {lat, long}
+        owner_id,
+        is_claimed,
+
+
         challenge %% Not in database, temporary value
 }).
 
@@ -27,7 +30,6 @@
 	node, {
 		id,
         location,
-		number_connections,
 		neighbors %%% [Module Ids]
 	}
 ).
