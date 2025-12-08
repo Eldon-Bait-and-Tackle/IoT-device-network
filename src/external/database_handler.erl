@@ -83,7 +83,7 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
     Query = "SELECT module_id, secret_key, lat, long, owner_id, is_claimed FROM modules WHERE module_id = $1",
     case epgsql:equery(Connection, Query, [Module_id]) of
         {ok, _Columns, [] } ->
-            {reply, {error, "Module Not Found"}, State};
+            {reply, {error, module_not_found}, State};
         {ok, _Columns, [Row]} ->
             {reply, {ok, row_to_module_record(Row)}, State};
         {error, Reason} ->
@@ -131,7 +131,7 @@ handle_call({claim_module, UserId, Secret}, _From, State = #database_handler_sta
             module_cache:load_modules(),
             {reply, {ok, ModID}, State};
         _ ->
-            {reply, {error, "Invalid Secret"}, State}
+            {reply, {error, invalid_secret}, State}
     end;
 
 

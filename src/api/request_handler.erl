@@ -11,6 +11,7 @@
 
 %% API
 -export([init/2]).
+
 -behaviour(cowboy_handler).
 -define(SERVER, ?MODULE).
 
@@ -69,7 +70,7 @@ handle_get(<<"get_map">>, _Params, Req, Headers, State) ->
 
 handle_get(<<"get_module">>, Params, Req, Headers, State) ->
     %% Protected endpoint - requires valid auth token
-    AuthToken = maps:get(<<"auth_token">>, Params, undefined),
+    AuthToken = get_auth_token(Req, Params),
     
     case validate_auth_token(AuthToken) of
         {ok, _UserInfo} ->
@@ -101,10 +102,9 @@ handle_get(_, _Params, Req, Headers, State) ->
 %%%===================================================================
 
 handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
-    %% Protected endpoint - requires valid auth token
-    AuthToken = maps:get(<<"auth_token">>, Body, undefined),
+    AuthToken = get_auth_token(Req, Body),
     Secret = maps:get(<<"secret">>, Body, undefined),
-    
+
     case Secret of
         undefined ->
             ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing secret parameter">>}),
@@ -113,7 +113,7 @@ handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
         _ ->
             case validate_auth_token(AuthToken) of
                 {ok, UserInfo} ->
-                    UserId = maps:get(user_id, UserInfo, undefined),
+                    UserId = maps:get(<<"sub">>, UserInfo, undefined),
                     case database_handler:claim_module(UserId, Secret) of
                         {ok, ModId} ->
                             SuccessJson = jiffy:encode(#{
@@ -151,13 +151,23 @@ handle_post(_, _, Req, Headers, State) ->
 %%% Internal functions
 %%%===================================================================
 
+
+get_auth_token(Req, Params) ->
+    case cowboy_req:header(<<"authorization">>, Req) of
+        undefined ->
+            maps:get(<<"auth_token">>, Params, undefined);
+        AuthHeader ->
+            case binary:split(AuthHeader, <<" ">>) of
+                [_, Token] -> Token;
+                [Token] -> Token
+            end
+    end.
+
 decode_payload(Body) ->
     try jiffy:decode(Body, [return_maps]) catch _:_ -> #{} end.
 
-%% Validates an auth token using the user_handler module
-%% Returns {ok, UserInfo} or {error, Reason}
 validate_auth_token(undefined) ->
     {error, missing_token};
 validate_auth_token(Token) ->
-    user_handler:validate_token(Token).
+    user_handler:verify_user_by_auth(Token).
 

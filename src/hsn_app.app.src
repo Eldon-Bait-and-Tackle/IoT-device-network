@@ -8,7 +8,10 @@
         kernel,
         stdlib,
         crypto,
-        jiffy, 
+        jiffy,
+        jose,
+        inets,
+        ssl,  
         cowboy, 
         epgsql
       ]},
@@ -20,7 +23,11 @@
             password => "admin1",
             database => "dev_db",
             port => 5432
-        }}
+        }},
+        {keycloak_url, <<"http://100.73.81.46:8080">>},
+        {keycloak_internal_url, <<"http://host.docker.internal:8080">>},
+        {keycloak_realm, <<"hsn_kc">>},
+        {keycloak_client_id, <<"public_client">>}
       ]},
 	{modules, []}
  ]}.
