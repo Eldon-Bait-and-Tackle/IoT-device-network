@@ -49,7 +49,7 @@ verify_transmission(ModuleId, DataBin, ProvidedSig) ->
     gen_server:call(?SERVER, {verify_transmission, ModuleId, DataBin, ProvidedSig}).
 
 load_module(Module = #module{}) ->
-    gen_server:cast(?SERVER, {load_module, Module}).
+    gen_server:call(?SERVER, {load_module, Module}).
 
 get_module_map() ->
     gen_server:call(?SERVER, {get_module_map}).
@@ -126,12 +126,22 @@ handle_call({verify_response, Module_id, Response}, _From, State = #module_cache
 
 handle_call({verify_transmission, ModuleId, DataBin, ProvidedSig}, _From, State) ->
     VerificationResult = case safe_lookup(ModuleId) of
-         [#module{secret_key = Secret}] ->
-             ExpectedSig = crypto:mac(hmac, sha256, Secret, DataBin),
-             ExpectedSig =:= ProvidedSig;
-         [] ->
-             false
-     end,
+                             [#module{secret_key = Secret}] ->
+                                 RawMac = crypto:mac(hmac, sha256, Secret, DataBin),
+                                 ExpectedSig = list_to_binary(lists:flatten([io_lib:format("~2.16.0b", [B]) || <<B>> <= RawMac])),
+
+                                 %% FIX: Flatten the message so it prints as text, not numbers
+                                 LogMsg = lists:flatten(io_lib:format("DEBUG VERIFY -> Module: ~p | Expect: ~p | Got: ~p",
+                                     [ModuleId, ExpectedSig, ProvidedSig])),
+                                 hsn_logger:send_log(?MODULE, LogMsg),
+
+                                 ExpectedSig =:= ProvidedSig;
+                             [] ->
+                                 %% FIX: Flatten here too
+                                 FailMsg = lists:flatten(io_lib:format("DEBUG FAIL: Module ~p not found in cache during verification", [ModuleId])),
+                                 hsn_logger:send_log(?MODULE, FailMsg),
+                                 false
+                         end,
     {reply, VerificationResult, State};
 
 
@@ -156,6 +166,11 @@ handle_call({get_all_ids}, _From, State = #module_cache_state{}) ->
     ),
     {reply, {ok, List}, State};
 
+
+handle_call({load_module, Module = #module{module_id = Mid}}, _From, State = #module_cache_state{}) ->
+    ets:insert(?TABLE, Module),
+    {reply, {ok, Mid}, State};
+
 handle_call(_Request, _From, State = #module_cache_state{}) ->
     {reply, ok, State}.
     
@@ -171,11 +186,6 @@ handle_cast({load_modules}, State = #module_cache_state{}) ->
             hsn_logger:send_log(?MODULE, "Module Loading has failed"),
             {noreply, State}
     end;
-        
-        
-handle_cast({load_module, Module = #module{}}, State = #module_cache_state{}) ->
-    ets:insert(?TABLE, Module),
-    {noreply, State};
     
     
 handle_cast(_Request, State = #module_cache_state{}) ->

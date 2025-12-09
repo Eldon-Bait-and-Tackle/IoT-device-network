@@ -36,9 +36,9 @@ init([]) ->
         restart => permanent,
         type => worker},
 
-    TransCache = #{id => transmission_cache,
+    TransmissionCache = #{id => transmission_cache,
         start => {transmission_cache, start_link, []},
         restart => permanent,
         type => worker},
 
-    {ok, {SupFlags, [ModuleCache, MapCache, HeuristicsCache, TransCache]}}.
+    {ok, {SupFlags, [ModuleCache, TransmissionCache, MapCache, HeuristicsCache]}}.

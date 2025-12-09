@@ -15,7 +15,7 @@
     register_module/1, claim_module/2,
     new_transmission/1,
     retrieve_module_data/1, load_modules/0,
-    get_latest_transmissions/0]).
+    load_transmission_cache/0]).
 
 -define(SERVER, ?MODULE).
 
@@ -51,6 +51,8 @@ load_modules() ->
 get_latest_transmissions() ->
     gen_server:call(?SERVER, {get_latest_transmissions}).
 
+load_transmission_cache() ->
+    gen_server:call(?SERVER, {load_transmission_cache}).
 
 
 %%%===================================================================
@@ -90,6 +92,8 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
             {reply, {error, Reason}, State}
     end;
 
+
+
 handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
 
     Query = "SELECT module_id, secret_key, lat, long, owner_id, is_claimed FROM modules",
@@ -115,7 +119,7 @@ handle_call({register_module, Secret}, _From, State = #database_handler_state{co
             case epgsql:equery(C, Insert, [Secret]) of
                 {ok, _, _, [Row]} ->
                     Result = row_to_module_record(Row),
-                    module_cache:load_module(Result),
+                    _ = module_cache:load_module(Result),
                     {reply, {ok, Result#module.module_id}, State};
                 {error, Reason} ->
                     {reply, {error, Reason}, State}
@@ -139,6 +143,24 @@ handle_call({claim_module, UserId, Secret}, _From, State = #database_handler_sta
 %%%===================================================================
 %%% Transmissions
 %%%===================================================================
+
+
+handle_call({load_transmission_cache}, _From, State = #database_handler_state{connection = Connection}) ->
+
+    Query = "SELECT transmission_id, module_id, time, temperature, moisture, battery "
+    "FROM transmission "
+    "WHERE time >= NOW() - INTERVAL '7 days' "
+    "ORDER BY module_id, time DESC",
+
+    case epgsql:equery(Connection, Query) of
+        {ok, _Columns, []} ->
+            {reply, {ok, []}, State};
+        {ok, _Columns, Rows} ->
+            Records = [row_to_transmission_record(R) || R <- Rows],
+            {reply, {ok, Records}, State};
+        {error, Reason} ->
+            {reply, {error, Reason}, State}
+    end;
 
 handle_call({get_latest_transmissions}, _From, State = #database_handler_state{connection = Connection}) ->
 
@@ -207,6 +229,8 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
 
 
 connection(Config) ->
