@@ -1,11 +1,18 @@
 version: '3.8'
 services:
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    networks:
+      - hsn_net
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
   hsn_service:
     image: eldonbird/hsn:latest
     build: .
     container_name: hsn_app
-    ports:
-      - "8082:8082"
     restart: always
     networks:
       - hsn_net
@@ -13,3 +20,4 @@ services:
 networks:
   hsn_net:
     external: true
+    driver: bridge
