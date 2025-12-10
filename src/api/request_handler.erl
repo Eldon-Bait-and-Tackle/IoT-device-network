@@ -103,19 +103,49 @@ handle_get(_, _Params, Req, Headers, State) ->
 
 handle_post(<<"update_location">>, Body, Req, Headers, State) ->
     AuthToken = get_auth_token(Req, Body),
-    Secret = maps:get(<<"secret">>, Body, undefined),
+    Module_id = maps:get(<<"module_id">>, Body, undefined),
     
-    case Secret of
+    case Module_id of
         undefined ->
-            ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing secret parameter">>}),
+            ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing module_id parameter">>}),
             Req2 = cowboy_req:reply(400, Headers, ErrorJson, Req),
             {ok, Req2, State};
         _ ->
             case validate_auth_token(AuthToken) of
                 {ok, UserInfo} ->
                     UserId = maps:get(<<"sub">>, UserInfo, undefined),
-                    case 
-    ;
+                    case module_cache:verify_user_ownership(UserId, Module_id) of
+                        {ok, true} ->
+                            Lat = maps:get(<<"latitude">>, Body, undefined),
+                            Long = maps:get(<<"longitude">>, Body, undefined),
+                            case database_handler:update_module_location(Module_id, Lat, Long) of
+                                {ok, _} ->
+                                    SuccessJson = jiffy:encode(#{
+                                        <<"module_id">> => Module_id,
+                                        <<"status">> => <<"updated">>
+                                    }),
+                                    Req3 = cowboy_req:reply(200, Headers, SuccessJson, Req),
+                                    {ok, Req3, State};
+                                {error, Reason2} ->
+                                    ErrorJson2 = jiffy:encode(#{<<"error">> => <<Reason2>>}),
+                                    Req3 = cowboy_req:reply(400, Headers, ErrorJson2, Req),
+                                    {ok, Req3, State};
+                                _ ->
+                                    ErrorJson2 = jiffy:encode(#{<<"error">> => <<"No Idea sport, good luck though :)">>}),
+                                    Req3 = cowboy_req:reply(401, Headers, ErrorJson2, Req),
+                                    {ok, Req3, State}
+                            end;
+                        _ ->
+                            ErrorJson2 = jiffy:encode(#{<<"error">> => <<"An error of some kind has occured when attempting to validate ownership">>}),
+                            Req3 = cowboy_req:reply(400, Headers, ErrorJson2, Req),
+                            {ok, Req3, State}
+                    end;
+                {error, missing_token} ->
+                    ErrorJson2 = jiffy:encode(#{<<"error">> => <<"Missing User Auth Token">>}),
+                    Req2 = cowboy_req:reply(400, Headers, ErrorJson2, Req),
+                    {ok, Req2, State}
+            end
+        end;
 
 handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
     AuthToken = get_auth_token(Req, Body),

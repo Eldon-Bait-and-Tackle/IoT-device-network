@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # 1. Cloudflare Tunnel Service
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    # Isolate the tunnel so it can access other containers but isn't exposed to host
+    networks:
+      - internal_net
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN} # Paste your token in a .env file or hardcode here
+
+  # 2. Keycloak Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    restart: always
+    command: start-dev --import-realm # 'start' for prod, 'start-dev' for testing
+    networks:
+      - internal_net
+    environment:
+      # Database config (simplified for example, use Postgres for prod)
+      KC_DB: dev-file
+      
+      # Admin Credentials
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: securepassword
+      
+      # PROXY CONFIGURATION (CRITICAL)
+      # Tells Keycloak it's behind a proxy (Cloudflare) terminating SSL
+      KC_PROXY: edge
+      # Allow HTTP internally (since SSL is handled by Cloudflare)
+      KC_HTTP_ENABLED: "true"
+      # The public URL your users will use
+      KC_HOSTNAME: auth.yourdomain.com
+
+  # 3. Your Application
+  my-app:
+    image: nginx:alpine # Replacing this with your actual app image
+    container_name: my_app
+    restart: always
+    networks:
+      - internal_net
+    # No ports section needed! Tunnel

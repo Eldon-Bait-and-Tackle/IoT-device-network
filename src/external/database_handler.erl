@@ -12,10 +12,11 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3,
 
-    register_module/1, claim_module/2,
+    register_module/1, claim_module/2, update_module_location/3,
     new_transmission/1,
-    retrieve_module_data/1, load_modules/0,
-    load_transmission_cache/0]).
+    retrieve_module_data/1, 
+    
+    load_modules/0, load_transmission_cache/0]).
 
 -define(SERVER, ?MODULE).
 
@@ -53,6 +54,9 @@ get_latest_transmissions() ->
 
 load_transmission_cache() ->
     gen_server:call(?SERVER, {load_transmission_cache}).
+
+update_module_location(Module_id, Lat, Long) ->
+    gen_server:call(?SERVER, {update_module_location, Module_id, Lat, Long}).
 
 
 %%%===================================================================
@@ -92,7 +96,22 @@ handle_call({retrieve_module, Module_id}, _From, State = #database_handler_state
             {reply, {error, Reason}, State}
     end;
 
+handle_call({update_module_location, Module_id, Lat, Long}, _From, State = #database_handler_state{connection = Connection}) ->
 
+    Query = "UPDATE modules "
+            "SET LAT = $1, LONG = $2, "
+            "WHERE module_id = $3;",
+    
+    case epgsql:equery(Connection, Query, [Lat, Long, Module_id]) of
+        {ok, _Cols, _Rows} ->
+            {reply, {ok, ok}, State};
+        {error, Reason} ->
+            hsn_logger:send_log(?SERVER, Reason),
+            {reply, {error, Reason}, State};
+        _ ->
+            hsn_logger:send_log(?SERVER, "something has gone wrong with update module location"),
+            {reply, {error, unknown}, State}
+    end;
 
 handle_call({load_modules}, _From, State = #database_handler_state{connection = Connection}) ->
 
