@@ -181,9 +181,9 @@ handle_call({get_latest_transmissions}, _From, State = #database_handler_state{c
 handle_call({new_transmission, {Mid, T, M, B}}, _From, State = #database_handler_state{connection = Connection}) ->
 
     Module_id = binary_to_integer(Mid),
-    Temperature = binary_to_float(T),
-    Moisture = binary_to_float(M),
-    Battery = binary_to_integer(B),
+    Temperature = safe_to_float(T),
+    Moisture = safe_to_float(M),
+    Battery = safe_to_float(B),
 
     Query = "INSERT INTO transmission (module_id, time, temperature, moisture, battery) "
     "VALUES ($1, NOW(), $2, $3, $4) "
@@ -231,6 +231,13 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%%===================================================================
 
 
+safe_to_float(Bin) ->
+    try binary_to_float(Bin)
+    catch
+        error:badarg ->
+            try float(binary_to_integer(Bin))
+            catch _:_ -> 0.0 end
+    end.
 
 
 connection(Config) ->

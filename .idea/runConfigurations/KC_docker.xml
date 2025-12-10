@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="KC-docker" type="docker-deploy" factoryName="docker-compose.yml" server-name="Dimitri_Docker">
+    <deployment type="docker-compose.yml">
+      <settings>
+        <option name="commandLineOptions" value="--build -p Keycloak" />
+        <option name="sourceFilePath" value="keycloak-compose.yml" />
+      </settings>
+    </deployment>
+    <method v="2" />
+  </configuration>
+</component>

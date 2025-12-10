@@ -36,6 +36,5 @@
 
 -record(
     user, {
-        user_id,
-        modules %%% [Module Ids]
+        user_id
 }).

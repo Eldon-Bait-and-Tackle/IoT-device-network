@@ -55,7 +55,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, public, named_table, {keypos, 1}]),
+    ets:new(?TABLE, [set, public, named_table, {keypos, 2}]),
     {ok, #heuristics_cache_state{}}.
 
 handle_call(_Request, _From, State = #heuristics_cache_state{}) ->

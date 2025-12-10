@@ -14,7 +14,7 @@
     
     retrieve_location/1, load_module/1, get_module_map/0, get_all_ids/0,
     store_challenge/2, get_module_data/1,
-    verify_response/2, verify_transmission/3,
+    verify_response/2, verify_transmission/3, verify_user_ownership/2,
     load_modules/0]).
 
 -define(SERVER, ?MODULE).
@@ -60,6 +60,9 @@ get_all_ids() ->
 load_modules() ->
     gen_server:cast(?SERVER, {load_modules}).
 
+verify_user_ownership(User_id, Module_id) ->
+    gen_server:call(?SERVER< {verify_user_ownership, User_id, Module_id}).
+
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
@@ -69,7 +72,7 @@ start_link() ->
 
 init([]) ->
     %% Use module_id (first record field) as the ETS key
-    ets:new(?TABLE, [set, private, named_table, {keypos, 1}]),
+    ets:new(?TABLE, [set, private, named_table, {keypos, 2}]),
     load_modules(),
     {ok, #module_cache_state{}}.
 
@@ -165,6 +168,14 @@ handle_call({get_all_ids}, _From, State = #module_cache_state{}) ->
         ?TABLE
     ),
     {reply, {ok, List}, State};
+
+handle_call({verify_user_ownership, User_id, Module_id}, _FROM, State = #module_cache_state{}) ->
+
+    #module{owner_id = Comparison_id} = ets:lookup(?TABLE, Module_id),
+    
+    %% return true, owner and user are the same
+    {reply, {ok, Comparison_id =:= User_id}, State};
+    
 
 
 handle_call({load_module, Module = #module{module_id = Mid}}, _From, State = #module_cache_state{}) ->

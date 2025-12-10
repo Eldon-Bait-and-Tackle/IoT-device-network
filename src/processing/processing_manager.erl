@@ -16,7 +16,7 @@
 
 -define(HOUR, 3600000).
 -define(SERVER, ?MODULE).
--define(TICK, ?HOUR * 1).
+-define(TICK, 36000 * 1).
 
 -record(processing_manager_state, {timer_reference}).
 
@@ -31,7 +31,7 @@ start_link() ->
 
 init([]) ->
     graph_processing(),
-    timer:sleep(1000),
+    timer:sleep(6000),
     heuristics_processing(),
     Timer = erlang:send_after(?TICK, self(), tick),
     {ok, #processing_manager_state{timer_reference = Timer}}.

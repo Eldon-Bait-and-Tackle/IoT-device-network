@@ -18,6 +18,8 @@
 -define(DEFAULT_REALM, <<"master">>).
 -define(DEFAULT_CLIENT_ID, <<"hsn_client_public">>).
 
+-define(TABLE, ?MODULE).
+
 -record(state, {
     public_keys = [],
     keycloak_internal_url,

@@ -136,7 +136,7 @@ code_change(_OldVsn, State = #transmission_cache_state{}, _Extra) ->
 
 
 group_by_module(Records) ->
-    lists:foldl(
+    lists:foldr(
         fun(Rec = #transmission{module_id = Mid}, Acc) ->
             Map = maps:get(Mid, Acc, []),
             maps:put(Mid, [Rec | Map], Acc)

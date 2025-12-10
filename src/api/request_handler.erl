@@ -101,6 +101,22 @@ handle_get(_, _Params, Req, Headers, State) ->
 %%% Post
 %%%===================================================================
 
+handle_post(<<"update_location">>, Body, Req, Headers, State) ->
+    AuthToken = get_auth_token(Req, Body),
+    Secret = maps:get(<<"secret">>, Body, undefined),
+    
+    case Secret of
+        undefined ->
+            ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing secret parameter">>}),
+            Req2 = cowboy_req:reply(400, Headers, ErrorJson, Req),
+            {ok, Req2, State};
+        _ ->
+            case validate_auth_token(AuthToken) of
+                {ok, UserInfo} ->
+                    UserId = maps:get(<<"sub">>, UserInfo, undefined),
+                    case 
+    ;
+
 handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
     AuthToken = get_auth_token(Req, Body),
     Secret = maps:get(<<"secret">>, Body, undefined),
