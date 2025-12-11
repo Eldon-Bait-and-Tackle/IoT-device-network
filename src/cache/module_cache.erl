@@ -171,10 +171,12 @@ handle_call({get_all_ids}, _From, State = #module_cache_state{}) ->
 
 handle_call({verify_user_ownership, User_id, Module_id}, _FROM, State = #module_cache_state{}) ->
 
-    #module{owner_id = Comparison_id} = ets:lookup(?TABLE, Module_id),
+    Result = case safe_lookup(Module_id) of 
+                 [#module{owner_id = OwnerId}] -> {ok, OwnerId =:= User_id};
+                 [] -> {error, not_found}
+    end,
     
-    %% return true, owner and user are the same
-    {reply, {ok, Comparison_id =:= User_id}, State};
+    {reply, {ok, Result}, State};
     
 
 
