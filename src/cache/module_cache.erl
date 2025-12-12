@@ -58,7 +58,7 @@ get_all_ids() ->
     gen_server:call(?SERVER, {get_all_ids}).
 
 load_modules() ->
-    gen_server:cast(?SERVER, {load_modules}).
+    gen_server:call(?SERVER, {load_modules}).
 
 verify_user_ownership(User_id, Module_id) ->
     gen_server:call(?SERVER< {verify_user_ownership, User_id, Module_id}).
@@ -71,11 +71,9 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    %% Use module_id (first record field) as the ETS key
     ets:new(?TABLE, [set, private, named_table, {keypos, 2}]),
-    load_modules(),
+    gen_server:cast(self(), {load_modules}),
     {ok, #module_cache_state{}}.
-
 
 
 
@@ -180,28 +178,43 @@ handle_call({verify_user_ownership, User_id, Module_id}, _FROM, State = #module_
     
 
 
-handle_call({load_module, Module = #module{module_id = Mid}}, _From, State = #module_cache_state{}) ->
-    ets:insert(?TABLE, Module),
-    {reply, {ok, Mid}, State};
+
+
+handle_call({load_modules}, _From, State = #module_cache_state{}) ->
+    case database_handler:load_modules() of
+        {ok, Modules} ->
+            ets:insert(?TABLE, Modules),
+            hsn_logger:send_log(?MODULE, io_lib:format("Module cache loaded ~p devices.", [length(Modules)])),
+            {reply, {ok, Modules}, State};
+        {error, Reason} ->
+            hsn_logger:send_log(?MODULE, "Module Loading has failed"),
+            {reply, {error, Reason}, State}
+    end;
 
 handle_call(_Request, _From, State = #module_cache_state{}) ->
+    hsn_logger:send_log(?SERVER, "Default ahndle call... called"),
     {reply, ok, State}.
-    
-    
-    
+
+
+
+
+handle_cast({load_module, Module}, State = #module_cache_state{}) ->
+    ets:insert(?TABLE, Module),
+    {noreply, State};
+
 handle_cast({load_modules}, State = #module_cache_state{}) ->
     case database_handler:load_modules() of
         {ok, Modules} ->
             ets:insert(?TABLE, Modules),
             hsn_logger:send_log(?MODULE, io_lib:format("Module cache loaded ~p devices.", [length(Modules)])),
             {noreply, State};
-        {error, _Reason} ->
+        {error, Reason} ->
             hsn_logger:send_log(?MODULE, "Module Loading has failed"),
             {noreply, State}
     end;
     
-    
 handle_cast(_Request, State = #module_cache_state{}) ->
+    hsn_logger:send_log(?SERVER, "Default ahndle cast called"),
     {noreply, State}.
 
 handle_info(_Info, State = #module_cache_state{}) ->

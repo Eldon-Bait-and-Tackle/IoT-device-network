@@ -39,8 +39,8 @@ start_cowboy_listener() ->
             
         ]}
     ]),
-    
+
     {ok, _} = cowboy:start_clear(handshake_listener,
-        [{port, ?PORT}],
+        [{port, ?PORT}, {ip, {0,0,0,0}}],
         #{env => #{dispatch => Dispatch}}).
 

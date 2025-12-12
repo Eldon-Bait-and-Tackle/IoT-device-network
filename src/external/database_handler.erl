@@ -151,7 +151,7 @@ handle_call({claim_module, UserId, Secret}, _From, State = #database_handler_sta
     Query = "UPDATE modules SET is_claimed = TRUE, owner_id = $1 WHERE secret_key = $2 AND is_claimed = FALSE RETURNING module_id",
     case epgsql:equery(C, Query, [UserId, Secret]) of
         {ok, _, _, [{ModID}]} ->
-            module_cache:load_modules(),
+            module_cache:load_modules(), %%% update this later to only update a single module, this should better help with performance
             {reply, {ok, ModID}, State};
         _ ->
             {reply, {error, invalid_secret}, State}
@@ -249,7 +249,7 @@ code_change(_OldVsn, State = #database_handler_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-
+safe_to_float(Val) when is_float(Val) -> Val;
 safe_to_float(Bin) ->
     try binary_to_float(Bin)
     catch
@@ -280,7 +280,7 @@ row_to_module_record({Module_id, Secret, Lat, Long, Owner_id, Claimed}) ->
         owner_id = Owner_id,
         is_claimed = Claimed,
         location = {
-            case Lat of null -> 0.0; _ -> Lat end,
-            case Long of null -> 0.0; _ -> Long end
+            safe_to_float(Lat),
+            safe_to_float(Long)
         }
     }.

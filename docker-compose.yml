@@ -5,6 +5,7 @@ services:
     container_name: cloudflared
     restart: always
     networks:
+      - keycloak_net
       - hsn_net
     command: tunnel run
     environment:
@@ -18,8 +19,13 @@ services:
     restart: always
     networks:
       - hsn_net
+      - keycloak_net
 
 networks:
   hsn_net:
     external: true
     driver: bridge
+  keycloak_net:
+    external: true
+    driver: bridge
+    
