@@ -70,7 +70,7 @@ check_module_temp(ModuleID) ->
             {IsWithinRange, Deviation} = is_within_range(SelfTemp, AvgNeighborTemp),
             {ModuleID, SelfTemp, AvgNeighborTemp, IsWithinRange, Deviation};
         _ ->
-            {ModuleID, SelfTemp, no_neighbors, true}
+            {ModuleID, SelfTemp, no_neighbors, true, 0}
     end.
 
 is_within_range(CurrentTemp, AverageTemp) ->
