@@ -22,10 +22,10 @@ init(Req, State) ->
 
     %% Standard CORS headers required by browsers
     Headers = #{
+        <<"access-control-allow-headers">> => <<"content-type, authorization">>,
         <<"content-type">> => <<"application/json">>,
         <<"access-control-allow-origin">> => <<"*">>,
         <<"access-control-allow-methods">> => <<"GET, POST, OPTIONS">>,
-        <<"access-control-allow-headers">> => <<"content-type">>,
         <<"access-control-allow-private-network">> => <<"true">>
     },
 
@@ -236,6 +236,51 @@ handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
                         <<"message">> => <<"Invalid or missing auth token">>
                     }),
                     Req2 = cowboy_req:reply(401, Headers, ErrorJson, Req),
+                    {ok, Req2, State}
+            end
+    end;
+
+handle_post(<<"exchange_token">>, Body, Req, Headers, State) ->
+    Code = maps:get(<<"code">>, Body, undefined),
+    RedirectUri = maps:get(<<"redirect_uri">>, Body, undefined),
+
+    case {Code, RedirectUri} of
+        {undefined, _} ->
+            ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing code parameter">>}),
+            Req2 = cowboy_req:reply(400, Headers, ErrorJson, Req),
+            {ok, Req2, State};
+        {_, undefined} ->
+            ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing redirect_uri parameter">>}),
+            Req2 = cowboy_req:reply(400, Headers, ErrorJson, Req),
+            {ok, Req2, State};
+        _ ->
+            %% Exchange code for token with Keycloak
+            TokenUrl = <<"https://auth.eldonbaitandtackle.net/realms/hsn_kc/protocol/openid-connect/token">>,
+            ClientId = <<"public_client">>,
+
+            Body2 = uri_string:compose_query([
+                {<<"grant_type">>, <<"authorization_code">>},
+                {<<"client_id">>, ClientId},
+                {<<"code">>, Code},
+                {<<"redirect_uri">>, RedirectUri}
+            ]),
+
+            case httpc:request(post, {binary_to_list(TokenUrl), [], "application/x-www-form-urlencoded", Body2}, [], [{body_format, binary}]) of
+                {ok, {{_, 200, _}, _, ResponseBody}} ->
+                    %% Forward the token response to the client
+                    Req2 = cowboy_req:reply(200, Headers, ResponseBody, Req),
+                    {ok, Req2, State};
+                {ok, {{_, StatusCode, _}, _, ResponseBody}} ->
+                    hsn_logger:send_log(?MODULE, "Token exchange failed: ~p", [StatusCode]),
+                    Req2 = cowboy_req:reply(StatusCode, Headers, ResponseBody, Req),
+                    {ok, Req2, State};
+                {error, Reason} ->
+                    hsn_logger:send_log(?MODULE, "Token exchange error: ~p", [Reason]),
+                    ErrorJson = jiffy:encode(#{
+                        <<"error">> => <<"Token exchange failed">>,
+                        <<"message">> => atom_to_binary(Reason, utf8)
+                    }),
+                    Req2 = cowboy_req:reply(500, Headers, ErrorJson, Req),
                     {ok, Req2, State}
             end
     end;
