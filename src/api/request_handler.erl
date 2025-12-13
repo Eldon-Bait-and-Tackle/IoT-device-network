@@ -59,7 +59,7 @@ init(Req, State) ->
 
 handle_get(<<"get_modules">>, _Params, Req, Headers, State) ->
     %% Public endpoint - no auth required
-    Results = module_cache::get_all_results(),
+    Results = module_cache:get_all_results(),
     Json = jiffy:encode(#{<<"results">> => Results}),
     Req2 = cowboy_req:reply(200, Headers, Json, Req),
     {ok, Req2, State};
