@@ -72,6 +72,7 @@ handle_call({get_node, Nid}, _From, State = #map_cache_state{}) ->
 handle_call({new_map, Map}, _From,  State = #map_cache_state{}) ->
     case update_map(Map) of
         {ok, complete} ->
+            hsn_logger:send_log(?SERVER, "map cache size of: ~w", [ets:info(?TABLE, size)]),
             {reply, ok, State};
         {error_1, MSG} ->
             hsn_logger:send_log(?SERVER, MSG),

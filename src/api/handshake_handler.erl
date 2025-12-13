@@ -78,8 +78,7 @@ handle_response(Module_id, Response, Req, State) ->
         {ok, true} ->
             AuthToken = base64:encode(crypto:strong_rand_bytes(32)),
 
-            %% In a real implementation, you might want to store this token
-            %% persistently or use user_handler to cache it
+            %% need to change this function to save persistently, right now this is for deprecaded modules and is only added to maintain compatibility.
             Json = jiffy:encode(#{
                 <<"auth_token">> => AuthToken,
                 <<"module_id">> => Module_id,

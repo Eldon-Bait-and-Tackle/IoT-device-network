@@ -14,9 +14,9 @@
 
 -define(SERVER, ?MODULE).
 
--define(DEFAULT_KC_URL, <<"http://localhost:8080">>).
--define(DEFAULT_REALM, <<"master">>).
--define(DEFAULT_CLIENT_ID, <<"hsn_client_public">>).
+-define(DEFAULT_KC_URL, <<"https://auth.eldonbaitandtackle.net">>).
+-define(DEFAULT_REALM, <<"hsn_kc">>).
+-define(DEFAULT_CLIENT_ID, <<"public_client">>).
 
 -define(TABLE, ?MODULE).
 

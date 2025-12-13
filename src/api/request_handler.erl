@@ -15,6 +15,8 @@
 -behaviour(cowboy_handler).
 -define(SERVER, ?MODULE).
 
+-include("records.hrl").
+
 init(Req, State) ->
     Method = cowboy_req:method(Req),
 
@@ -55,6 +57,14 @@ init(Req, State) ->
 %%% Get
 %%%===================================================================
 
+handle_get(<<"get_modules">>, _Params, Req, Headers, State) ->
+    %% Public endpoint - no auth required
+    Results = module_cache::get_all_results(),
+    Json = jiffy:encode(#{<<"results">> => Results}),
+    Req2 = cowboy_req:reply(200, Headers, Json, Req),
+    {ok, Req2, State};
+
+
 handle_get(<<"get_heuristics">>, _Params, Req, Headers, State) ->
     %% Public endpoint - no auth required
     Results = heuristics_cache:get_all_results(),
@@ -93,6 +103,49 @@ handle_get(<<"get_module">>, Params, Req, Headers, State) ->
             {ok, Req2, State}
     end;
 
+handle_get(<<"get_owned_modules">>, Params, Req, Headers, State) ->
+    Auth = get_auth_token(Req, Params),
+    hsn_logger:send_log(?MODULE, "User attempting to get_owned_modules $1", [Auth]),
+
+    case validate_auth_token(Auth) of
+        {ok, UserInfo} ->
+            UserId = maps:get(<<"sub">>, UserInfo, undefined),
+
+            case module_cache:get_all_users_modules(UserId) of
+                {ok, Modules} ->
+                    ModuleIds = [Id || #module{module_id = Id} <- Modules],
+
+                    {ok, RawHeuristics} = heuristics_cache:get_results_by_list(ModuleIds),
+                    Heuristics = lists:map(fun format_heuristic/1, RawHeuristics),
+
+                    ModuleMaps = [module_to_map(M) || M <- Modules],
+
+                    Response = #{
+                        <<"modules">> => ModuleMaps,
+                        <<"heuristics">> => Heuristics
+                    },
+
+                    Json = jiffy:encode(Response),
+                    Req2 = cowboy_req:reply(200, Headers, Json, Req),
+                    {ok, Req2, State};
+                {error, Reason} ->
+                    ErrorJson = jiffy:encode(#{
+                        <<"error">> => <<"Failed to retrieve modules">>,
+                        <<"message">> => atom_to_binary(Reason, utf8)
+                    }),
+                    Req2 = cowboy_req:reply(500, Headers, ErrorJson, Req),
+                    {ok, Req2, State}
+            end;
+        {error, _Reason} ->
+            ErrorJson = jiffy:encode(#{
+                <<"error">> => <<"Unauthorized">>,
+                <<"message">> => <<"Invalid or missing auth token">>
+            }),
+            Req2 = cowboy_req:reply(401, Headers, ErrorJson, Req),
+            {ok, Req2, State}
+    end;
+
+            
 handle_get(_, _Params, Req, Headers, State) ->
     Req2 = cowboy_req:reply(400, Headers, <<"Invalid Request">>, Req),
     {ok, Req2, State}.
@@ -128,7 +181,7 @@ handle_post(<<"update_location">>, Body, Req, Headers, State) ->
                                     Req3 = cowboy_req:reply(200, Headers, SuccessJson, Req),
                                     {ok, Req3, State};
                                 {error, Reason2} ->
-                                    ErrorJson2 = jiffy:encode(#{<<"error">> => <<Reason2>>}),
+                                    ErrorJson2 = jiffy:encode(#{<<"error">> => Reason2}),
                                     Req3 = cowboy_req:reply(400, Headers, ErrorJson2, Req),
                                     {ok, Req3, State};
                                 _ ->
@@ -218,3 +271,26 @@ validate_auth_token(undefined) ->
 validate_auth_token(Token) ->
     user_handler:verify_user_by_auth(Token).
 
+
+format_heuristic({Module_id, Self_temp, Avg_temp, Within_range, Deviation}) ->
+    #{
+        <<"module_id">> => Module_id,
+        <<"self_temp">> => Self_temp,
+        <<"avg_neighbor_temp">> => Avg_temp,
+        <<"within_range">> => Within_range,
+        <<"deviation">> => Deviation
+    };
+format_heuristic({Module_id, Self_temp, no_neighbors, Within_range}) ->
+    #{
+        <<"module_id">> => Module_id,
+        <<"self_temp">> => Self_temp,
+        <<"avg_neighbor_temp">> => <<"no_neighbors">>,
+        <<"within_range">> => Within_range,
+        <<"deviation">> => 0.0
+    }.
+
+module_to_map(#module{module_id = Id, location = Loc}) ->
+    #{
+        <<"module_id">> => Id,
+        <<"location">> => case Loc of {Lat, Long} -> #{<<"lat">> => Lat, <<"long">> => Long}; _ -> null end
+    }.

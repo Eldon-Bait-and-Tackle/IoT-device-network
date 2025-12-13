@@ -64,7 +64,7 @@ except FileNotFoundError:
         
         
 for i in creds:
-    temp = str(random.randint(10, 25))
+    temp = str(random.randint(19, 25))
     moist = str(random.randint(10, 25))
     bat = str(random.randint(10, 100))
     outcome = test_transmission(ENDPOINTS, i["module_id"], i["secret"], temp, moist, bat)

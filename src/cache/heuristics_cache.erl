@@ -55,7 +55,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-    ets:new(?TABLE, [set, public, named_table, {keypos, 2}]),
+    ets:new(?TABLE, [set, public, named_table, {keypos, 1}]),
     {ok, #heuristics_cache_state{}}.
 
 handle_call(_Request, _From, State = #heuristics_cache_state{}) ->
@@ -63,6 +63,7 @@ handle_call(_Request, _From, State = #heuristics_cache_state{}) ->
 handle_cast({new_results, Map}, State = #heuristics_cache_state{}) ->
     update_with_new_map(Map),
     hsn_logger:send_log(?SERVER, "Heuristic Cache received and updated"),
+    hsn_logger:send_log(?SERVER, "heristics cache size of: ~w", [ets:info(?TABLE, size)]),
     {noreply, State};
 handle_cast(_Request, State = #heuristics_cache_state{}) ->
     {noreply, State}.
