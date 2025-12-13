@@ -105,13 +105,13 @@ handle_get(<<"get_module">>, Params, Req, Headers, State) ->
 
 handle_get(<<"get_owned_modules">>, Params, Req, Headers, State) ->
     Auth = get_auth_token(Req, Params),
-    hsn_logger:send_log(?MODULE, "User attempting to get_owned_modules $1", [Auth]),
+    hsn_logger:send_log(?MODULE, "User attempting to get_owned_modules ~p", [Auth]),
 
     case validate_auth_token(Auth) of
         {ok, UserInfo} ->
             UserId = maps:get(<<"sub">>, UserInfo, undefined),
 
-            case module_cache:get_all_users_modules(UserId) of
+            case module_cache:get_all_user_modules(UserId) of
                 {ok, Modules} ->
                     ModuleIds = [Id || #module{module_id = Id} <- Modules],
 
@@ -203,8 +203,15 @@ handle_post(<<"update_location">>, Body, Req, Headers, State) ->
 
 handle_post(<<"claim_device">>, Body, Req, Headers, State) ->
     AuthToken = get_auth_token(Req, Body),
-    Secret = maps:get(<<"secret">>, Body, undefined),
-
+    RawSecret = case maps:get(<<"secret">>, Body, undefined) of
+                    undefined -> maps:get(<<"module_secret">>, Body, undefined);
+                    Val -> Val
+                end,
+    Secret = case RawSecret of
+                 undefined -> undefined;
+                 Val2 -> string:trim(iolist_to_binary(Val2))
+             end,
+    
     case Secret of
         undefined ->
             ErrorJson = jiffy:encode(#{<<"error">> => <<"Missing secret parameter">>}),

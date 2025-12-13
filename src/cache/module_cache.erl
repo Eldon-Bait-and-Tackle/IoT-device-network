@@ -13,7 +13,7 @@
     code_change/3,
     
     retrieve_location/1, load_module/1, get_module_map/0, get_all_ids/0,
-    store_challenge/2, get_module_data/1,
+    store_challenge/2, get_module_data/1, get_all_user_modules/1,
     verify_response/2, verify_transmission/3, verify_user_ownership/2,
     load_modules/0]).
 
@@ -33,6 +33,10 @@
 
 
 %%% a general release of data is required to have a user authentication for any values beyond processed anonomised user statistics :)
+get_all_user_modules(User_id) ->
+    gen_server:call(?SERVER, {get_all_user_modules, User_id}).
+
+
 get_module_data(User_Auth) ->
     gen_server:call(?SERVER, {get_module_data, User_Auth}).
 
@@ -84,6 +88,20 @@ handle_call({get_module_data, _User_auth}, _FROM, State= #module_cache_state{}) 
 
 
 ;
+handle_call({get_all_user_modules, UserId}, _From, State) ->
+    Modules = ets:foldl(
+        fun(Record, Acc) ->
+            case Record of
+                #module{owner_id = Owner} when Owner =:= UserId ->
+                    [Record | Acc];
+                _ ->
+                    Acc
+            end
+        end,
+        [], %% <--- Must be a List [], not a Map #{}
+        ?TABLE
+    ),
+    {reply, {ok, Modules}, State};
 
 handle_call({retrieve_location, Module_id}, _From, State = #module_cache_state{}) ->
     case safe_lookup(Module_id) of
@@ -144,7 +162,6 @@ handle_call({verify_transmission, ModuleId, DataBin, ProvidedSig}, _From, State)
                                  false
                          end,
     {reply, VerificationResult, State};
-
 
 
 handle_call({get_module_map}, _From, State = #module_cache_state{}) ->
